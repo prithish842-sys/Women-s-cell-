@@ -1,0 +1,661 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+  FACULTY
+  ICC_ADMIN
+}
+
+enum AcademicStatus {
+  ACTIVE
+  FINAL_YEAR
+  PASSING_OUT_SOON
+  PASSED_OUT
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum SchemeStatus {
+  UPCOMING
+  ACTIVE
+  EXPIRED
+}
+
+enum GalleryCategory {
+  EVENT
+  ACHIEVEMENT
+  WORKSHOP
+  AWARENESS_PROGRAM
+  COMPETITION
+  SINGA_PEN_ACTIVITY
+  ENTREPRENEURSHIP
+  SKILL_DEVELOPMENT
+  CELEBRATION
+  COMMUNITY_ACTIVITY
+  OTHER
+}
+
+enum AchievementType {
+  ACADEMIC
+  SPORTS
+  CULTURAL
+  ENTREPRENEURSHIP
+  SKILL
+  COMPETITION
+  COMMUNITY_SERVICE
+  LEADERSHIP
+  OTHER
+}
+
+enum AchievementLevel {
+  COLLEGE
+  INTER_COLLEGE
+  DISTRICT
+  STATE
+  NATIONAL
+  INTERNATIONAL
+  OTHER
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ASSIGNED
+  RESOLVED
+  CLOSED
+}
+
+enum ComplaintUrgency {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum SkillRequestStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum SkillRequestType {
+  COLLEGE_PROJECT
+  EVENT
+  WORKSHOP
+  DESIGN
+  CONTENT
+  MEDIA
+  ENTREPRENEURSHIP
+  VOLUNTEERING
+  OTHER
+}
+
+enum NotificationType {
+  SKILL_REQUEST
+  WORKSHOP
+  WORKSHOP_REGISTRATION
+  SCHEME
+  ACHIEVEMENT
+  SYSTEM
+}
+
+enum RoleUpdateStatus {
+  SUBMITTED
+  REVIEWED
+  FOLLOW_UP_REQUIRED
+  COMPLETED
+}
+
+enum WorkshopCategory {
+  SKILL_DEVELOPMENT
+  AWARENESS
+  ENTREPRENEURSHIP
+  CAREER
+  SAFETY
+  HEALTH
+  COMPETITION
+  LEADERSHIP
+  OTHER
+}
+
+enum WorkshopParticipationStatus {
+  INTERESTED
+  REGISTERED
+  ATTENDED
+  CANCELLED
+}
+
+enum OpportunityType {
+  JOB
+  INTERNSHIP
+}
+
+enum OpportunityStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SupportContactCategory {
+  WOMEN_HELPLINE
+  CAMPUS_SECURITY
+  ICC
+  COUNSELLING
+  MEDICAL_SUPPORT
+  LEGAL_AID
+  ONE_STOP_CENTRE
+  PROTECTION_OFFICER
+  WORKING_WOMEN_HOSTEL
+  EMERGENCY_SERVICES
+  OTHER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole
+  identifier   String    @unique
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  studentProfile         StudentProfile?
+  facultyProfile         FacultyProfile?
+  createdSchemes         GovernmentScheme[]     @relation("SchemeCreatedBy")
+  createdAlbums          GalleryAlbum[]         @relation("AlbumCreatedBy")
+  uploadedGalleryImages  GalleryImage[]         @relation("GalleryImageUploadedBy")
+  createdAchievements    Achievement[]          @relation("AchievementCreatedBy")
+  updatedSiteContent     SiteContent[]          @relation("SiteContentUpdatedBy")
+  submittedIccComplaints IccComplaint[]         @relation("SubmittedIccComplaints")
+  assignedIccComplaints  IccComplaint[]         @relation("AssignedIccComplaints")
+  createdSkillRequests   SkillRequest[]         @relation("SkillRequestCreatedBy")
+  createdWorkshops       Workshop[]             @relation("WorkshopCreatedBy")
+  createdOpportunities   JobOpportunity[]       @relation("OpportunityCreatedBy")
+  createdSupportContacts SafetySupportContact[] @relation("SupportContactCreatedBy")
+  reviewedRoleUpdates    StudentRoleUpdate[]    @relation("RoleUpdateReviewedBy")
+  notifications          Notification[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model StudentProfile {
+  id                     String         @id @default(cuid())
+  userId                 String         @unique
+  registerNumber         String         @unique
+  phone                  String?
+  profileImage           String?
+  department             String
+  course                 String
+  bio                    String?
+  joiningAcademicYear    String
+  joiningYear            Int
+  expectedPassingYear    Int
+  expectedCompletionDate DateTime
+  courseDurationYears    Int
+  currentStudyYear       Int?
+  academicStatus         AcademicStatus @default(ACTIVE)
+  isSingaPenMember       Boolean        @default(false)
+  clubRole               String?
+  clubJoinedAt           DateTime?
+  achievementsSummary    String?
+
+  interestedInEntrepreneurship Boolean @default(false)
+  businessIdea                 String?
+  existingBusiness             String?
+  futurePlan                   String?
+  supportRequired              String?
+  preferredIndustry            String?
+  incubationSupportRequired    Boolean @default(false)
+  mentorshipSought             Boolean @default(false)
+
+  availableForProjects       Boolean  @default(false)
+  availableDays              String[]
+  preferredCollaborationType String?
+  availabilityNote           String?
+  activities                 Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills                 Skill[]
+  achievements           Achievement[]
+  skillRequestRecipients SkillRequestRecipient[]
+  workshopParticipations WorkshopParticipation[]
+  savedSchemes           SavedScheme[]
+  roleUpdates            StudentRoleUpdate[]
+
+  @@index([department])
+  @@index([course])
+  @@index([academicStatus])
+  @@index([isSingaPenMember])
+  @@index([expectedCompletionDate])
+}
+
+model StudentRoleUpdate {
+  id               String           @id @default(cuid())
+  studentId        String
+  officialPosition String
+  functionalRole   String
+  title            String
+  activityDate     DateTime
+  activitySummary  String
+  studentsReached  Int?
+  topics           String?
+  feedback         String?
+  followUp         String?
+  notes            String?
+  status           RoleUpdateStatus @default(SUBMITTED)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reviewedBy User?          @relation("RoleUpdateReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([functionalRole])
+  @@index([status])
+  @@index([activityDate])
+  @@index([createdAt])
+}
+
+model FacultyProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  staffId     String   @unique
+  department  String
+  designation String
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([department])
+}
+
+model Skill {
+  id                  String     @id @default(cuid())
+  studentId           String
+  skillName           String
+  normalizedSkillName String
+  category            String
+  skillLevel          SkillLevel
+  yearsOfExperience   Float      @default(0)
+  description         String?
+  tools               String[]
+  portfolioUrl        String?
+  certificateUrl      String?
+  isPrimary           Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([normalizedSkillName])
+  @@index([category])
+  @@index([skillLevel])
+}
+
+model GovernmentScheme {
+  id                 String       @id @default(cuid())
+  title              String
+  slug               String       @unique
+  shortDescription   String
+  fullDescription    String
+  provider           String
+  category           String
+  eligibility        String
+  benefits           String
+  requiredDocuments  String
+  applicationProcess String
+  officialUrl        String
+  startDate          DateTime?
+  endDate            DateTime?
+  contactInformation String?
+  status             SchemeStatus
+  isFeatured         Boolean      @default(false)
+  createdById        String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  createdBy User          @relation("SchemeCreatedBy", fields: [createdById], references: [id])
+  savedBy   SavedScheme[]
+
+  @@index([category])
+  @@index([status])
+  @@index([isFeatured])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model SkillRequest {
+  id                   String             @id @default(cuid())
+  title                String
+  description          String
+  requiredSkills       String[]
+  preferredSkillLevel  SkillLevel?
+  department           String?
+  requestType          SkillRequestType
+  eventOrProjectName   String?
+  requiredStudentCount Int?
+  deadline             DateTime?
+  contactPerson        String?
+  contactInformation   String?
+  status               SkillRequestStatus @default(DRAFT)
+  isPublished          Boolean            @default(false)
+  createdById          String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  createdBy  User                    @relation("SkillRequestCreatedBy", fields: [createdById], references: [id])
+  recipients SkillRequestRecipient[]
+
+  @@index([status])
+  @@index([isPublished])
+  @@index([deadline])
+  @@index([createdAt])
+}
+
+model SkillRequestRecipient {
+  id             String    @id @default(cuid())
+  skillRequestId String
+  studentId      String
+  matchedSkills  String[]
+  matchReasons   String[]
+  matchScore     Int       @default(0)
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  notifiedAt     DateTime  @default(now())
+
+  skillRequest SkillRequest   @relation(fields: [skillRequestId], references: [id], onDelete: Cascade)
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([skillRequestId, studentId])
+  @@index([studentId])
+  @@index([skillRequestId])
+  @@index([isRead])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model Workshop {
+  id                  String           @id @default(cuid())
+  title               String
+  slug                String           @unique
+  shortDescription    String
+  fullDescription     String
+  category            WorkshopCategory
+  startDateTime       DateTime
+  endDateTime         DateTime
+  venue               String
+  organizer           String
+  targetAudience      String?
+  posterImage         String?
+  registrationUrl     String?
+  maximumParticipants Int?
+  isCancelled         Boolean          @default(false)
+  isCompleted         Boolean          @default(false)
+  isFeatured          Boolean          @default(false)
+  isPublished         Boolean          @default(false)
+  galleryAlbumId      String?
+  createdById         String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  createdBy      User                    @relation("WorkshopCreatedBy", fields: [createdById], references: [id])
+  galleryAlbum   GalleryAlbum?           @relation(fields: [galleryAlbumId], references: [id], onDelete: SetNull)
+  participations WorkshopParticipation[]
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([isFeatured])
+  @@index([startDateTime])
+}
+
+model WorkshopParticipation {
+  id                   String                      @id @default(cuid())
+  workshopId           String
+  studentId            String
+  status               WorkshopParticipationStatus @default(INTERESTED)
+  learningExpectation  String?
+  supportRequirement   String?
+  attendanceMarkedAt   DateTime?
+  certificateIssuedAt  DateTime?
+  certificateUrl       String?
+  certificateRevokedAt DateTime?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  workshop Workshop       @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  student  StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, studentId])
+  @@index([studentId, status])
+  @@index([workshopId, status])
+  @@index([certificateIssuedAt])
+}
+
+model JobOpportunity {
+  id                  String            @id @default(cuid())
+  title               String
+  organization        String
+  opportunityType     OpportunityType
+  location            String?
+  description         String
+  eligibility         String
+  requiredSkills      String[]
+  officialUrl         String
+  applicationDeadline DateTime?
+  isFeatured          Boolean           @default(false)
+  status              OpportunityStatus @default(DRAFT)
+  createdById         String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  createdBy User @relation("OpportunityCreatedBy", fields: [createdById], references: [id])
+
+  @@index([status])
+  @@index([opportunityType])
+  @@index([applicationDeadline])
+  @@index([isFeatured])
+}
+
+model SafetySupportContact {
+  id           String                 @id @default(cuid())
+  name         String
+  category     SupportContactCategory
+  phone        String?
+  email        String?
+  address      String?
+  district     String?
+  availability String?
+  description  String?
+  verifiedDate DateTime?
+  isActive     Boolean                @default(true)
+  createdById  String
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  createdBy User @relation("SupportContactCreatedBy", fields: [createdById], references: [id])
+
+  @@index([category])
+  @@index([isActive])
+  @@index([verifiedDate])
+}
+
+model SavedScheme {
+  id        String   @id @default(cuid())
+  studentId String
+  schemeId  String
+  createdAt DateTime @default(now())
+
+  student StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scheme  GovernmentScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, schemeId])
+  @@index([studentId])
+}
+
+model SiteContent {
+  id          String   @id @default(cuid())
+  sectionKey  String   @unique
+  title       String?
+  content     String
+  metadata    Json?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("SiteContentUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([sectionKey])
+}
+
+model GalleryAlbum {
+  id               String          @id @default(cuid())
+  title            String
+  slug             String          @unique
+  shortDescription String?
+  fullDescription  String?
+  category         GalleryCategory
+  eventDate        DateTime?
+  venue            String?
+  organizedBy      String?
+  coverImage       String?
+  isFeatured       Boolean         @default(false)
+  isPublished      Boolean         @default(false)
+  createdById      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  createdBy User           @relation("AlbumCreatedBy", fields: [createdById], references: [id])
+  images    GalleryImage[]
+  workshops Workshop[]
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([isFeatured])
+  @@index([eventDate])
+}
+
+model GalleryImage {
+  id           String   @id @default(cuid())
+  albumId      String
+  imageUrl     String
+  thumbnailUrl String?
+  caption      String?
+  altText      String?
+  photographer String?
+  displayOrder Int      @default(0)
+  isFeatured   Boolean  @default(false)
+  uploadedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  album      GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  uploadedBy User         @relation("GalleryImageUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([albumId, displayOrder])
+  @@index([isFeatured])
+}
+
+model Achievement {
+  id              String           @id @default(cuid())
+  title           String
+  description     String
+  achievementType AchievementType
+  studentId       String?
+  memberName      String?
+  department      String?
+  eventName       String?
+  achievementDate DateTime?
+  level           AchievementLevel
+  position        String?
+  image           String?
+  certificate     String?
+  isFeatured      Boolean          @default(false)
+  isPublic        Boolean          @default(true)
+  createdById     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  createdBy User            @relation("AchievementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([studentId])
+  @@index([achievementType])
+  @@index([level])
+  @@index([achievementDate])
+  @@index([isPublic])
+  @@index([isFeatured])
+}
+
+model IccComplaint {
+  id               String           @id @default(cuid())
+  referenceNumber  String           @unique
+  submittedById    String
+  assignedAdminId  String?
+  complainantName  String
+  complainantEmail String
+  complainantPhone String?
+  category         String
+  urgency          ComplaintUrgency @default(NORMAL)
+  subject          String
+  description      String
+  incidentDate     DateTime?
+  location         String?
+  accusedDetails   String?
+  witnesses        String?
+  requestedAction  String?
+  attachmentUrl    String?
+  status           ComplaintStatus  @default(SUBMITTED)
+  adminNotes       String?
+  resolvedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  submittedBy   User  @relation("SubmittedIccComplaints", fields: [submittedById], references: [id], onDelete: Restrict)
+  assignedAdmin User? @relation("AssignedIccComplaints", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([submittedById])
+  @@index([assignedAdminId])
+  @@index([status])
+  @@index([urgency])
+  @@index([createdAt])
+}

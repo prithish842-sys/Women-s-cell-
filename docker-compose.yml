@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: singa_pen_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: singa_pen_portal
+    ports:
+      - "5432:5432"
+    volumes:
+      - singa_pen_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d singa_pen_portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  singa_pen_postgres_data:

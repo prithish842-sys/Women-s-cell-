@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+node_modules/.prisma/
+
+# Environment / secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+.env.*
+!.env.example
+!.env.production.example
+
+# Build output
+dist/
+dist-server/
+build/
+
+# Vite/cache
+.vite/
+.cache/
+.parcel-cache/
+
+# Test output
+coverage/
+
+# Logs
+*.log
+*.err
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime/private local data
+/uploads/
+/data/
+.mongodb-data/
+tmp/
+temp/
+*.tmp
+*.dump
+*.bak
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local verification/capture artifacts
+.codex-*/
+codex-*
+dev-*
+verify-server.*
+members-hover.png
+ref-hover.png
+womens cell ku card and gallery car.md
+bun.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
