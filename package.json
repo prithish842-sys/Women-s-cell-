@@ -67,7 +67,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.18.1",
-    "styled-components": "^6.4.4",
+    "styled-components": "^6.5.2",
     "supertest": "^7.2.2",
     "vite": "^6.2.3",
     "vitest": "^4.1.10",
