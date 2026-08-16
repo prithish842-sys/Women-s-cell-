@@ -48,7 +48,7 @@ export const SkillsDirectory: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/public/skills/search', {
+      const res = await api.get('/faculty/students/search', {
         signal,
         params: {
           keyword,
@@ -61,7 +61,7 @@ export const SkillsDirectory: React.FC = () => {
       setProfiles(res.data.data || []);
     } catch (err: any) {
       if (err?.code === 'ERR_CANCELED') return;
-      setError('Could not load the skills directory.');
+      setError('Sign in with a Faculty or Admin account to view the Talent Directory.');
     } finally {
       setLoading(false);
     }

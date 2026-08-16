@@ -36,6 +36,8 @@ pnpm-debug.log*
 
 # Runtime/private local data
 /uploads/
+/uploads/private/
+/uploads/private/icc/
 /data/
 .mongodb-data/
 tmp/
