@@ -1,0 +1,5 @@
+ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS 'WORKSHOP_REGISTRATION';
+
+ALTER TABLE "WorkshopParticipation"
+ADD COLUMN IF NOT EXISTS "learningExpectation" TEXT,
+ADD COLUMN IF NOT EXISTS "supportRequirement" TEXT;

@@ -1,0 +1,6 @@
+{
+  "name": "Singa Pen Portal",
+  "description": "Singa Pen Women's Empowerment Cell Portal for college students and faculty, featuring member directory, skill profiles, and government scheme listings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
