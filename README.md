@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Singa Pen - Women's Empowerment Cell Portal
 
 Full-stack React, Express, PostgreSQL, and Prisma portal for the Singa Pen Women's Empowerment Cell initiative. It supports public pages, student/faculty/admin dashboards, student skills, faculty search, government schemes, site content, gallery albums, achievement records, and file uploads.
@@ -135,3 +136,6 @@ This repository is prepared so source code can be committed without local secret
 - local logs, cache, screenshots, and temporary capture folders
 
 Use `<PASTE_GITHUB_REPOSITORY_URL_HERE>` as the placeholder remote URL until you create or choose the actual GitHub repository.
+=======
+# Women-s-cell-
+>>>>>>> origin/main
