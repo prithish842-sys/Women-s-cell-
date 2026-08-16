@@ -7,6 +7,7 @@ import { auth, AuthenticatedRequest, getJwtSecret, sanitizeUser } from '../middl
 
 const router = Router();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const INVALID_LOGIN_MESSAGE = 'Invalid identifier or password.';
 
 // Student Registration
 router.post('/student/register', async (req, res, next) => {
@@ -140,7 +141,7 @@ router.post('/login', async (req, res, next) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials. User not found.'
+        message: INVALID_LOGIN_MESSAGE
       });
     }
 
@@ -155,7 +156,7 @@ router.post('/login', async (req, res, next) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials. Password incorrect.'
+        message: INVALID_LOGIN_MESSAGE
       });
     }
 

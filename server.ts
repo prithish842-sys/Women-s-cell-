@@ -15,6 +15,7 @@ import adminRouter from './server/routes/admin.js';
 import iccRouter from './server/routes/icc.js';
 import { errorMiddleware } from './server/middleware/auth.js';
 import { connectDatabase, prisma, registerPrismaShutdown } from './server/config/prisma.js';
+import { PUBLIC_UPLOAD_ROOT } from './server/middleware/upload.js';
 
 dotenv.config();
 
@@ -71,7 +72,15 @@ function createApp() {
     legacyHeaders: false,
   });
 
-  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  for (const publicUploadPath of [
+    'profiles',
+    'skills',
+    'gallery',
+    'achievements',
+    'thumbnails',
+  ]) {
+    app.use(`/uploads/${publicUploadPath}`, express.static(path.join(PUBLIC_UPLOAD_ROOT, publicUploadPath)));
+  }
 
   app.get('/api/v1/health', async (_req, res, next) => {
     try {

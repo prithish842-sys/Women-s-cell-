@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Save, UserCheck } from 'lucide-react';
-import api, { resolveUploadUrl } from '../../utils/api.js';
+import api from '../../utils/api.js';
 
 interface IccComplaint {
   _id: string;
@@ -98,6 +98,25 @@ export const AdminIccComplaintDetail: React.FC = () => {
     }
   };
 
+  const downloadAttachment = async () => {
+    if (!complaintId) return;
+    try {
+      const res = await api.get(`/icc/complaints/${complaintId}/attachment`, { responseType: 'blob' });
+      const contentDisposition = String(res.headers['content-disposition'] || '');
+      const filename = contentDisposition.match(/filename="([^"]+)"/)?.[1] || `${complaint.referenceNumber}-attachment`;
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Could not download attachment.');
+    }
+  };
+
   if (loading) return <div className="p-8 text-sm text-gray-500">Loading complaint...</div>;
   if (!complaint) return <div className="p-8 text-sm text-maroon-700">{error || 'Complaint not found.'}</div>;
 
@@ -148,10 +167,10 @@ export const AdminIccComplaintDetail: React.FC = () => {
             <p className="text-sm whitespace-pre-wrap">{complaint.requestedAction || 'Not provided'}</p>
           </div>
           {complaint.attachmentUrl && (
-            <a href={resolveUploadUrl(complaint.attachmentUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md text-xs font-bold text-maroon-700">
+            <button type="button" onClick={downloadAttachment} className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md text-xs font-bold text-maroon-700">
               <FileText className="w-4 h-4" />
-              Open Attachment
-            </a>
+              Download Attachment
+            </button>
           )}
         </div>
 

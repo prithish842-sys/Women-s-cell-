@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { StudentProfiles, Users, GovernmentSchemes, SiteContents, Skills, GalleryAlbums, GalleryImages, Achievements, FacultyProfiles } from '../models/index.js';
+import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 import { enrichStudentAcademicDetails } from '../utils/academic.js';
 import { normalizeWomensCellName, womensCellMemberByName } from '../data/womensCellMembers.js';
 import { enrichSchemeDetails } from '../utils/scheme.js';
@@ -224,7 +225,7 @@ router.get('/members', async (req, res, next) => {
   }
 });
 
-router.get('/skills/search', async (req, res, next) => {
+router.get('/skills/search', auth, authorize(['FACULTY', 'ADMIN']), async (req: AuthenticatedRequest, res, next) => {
   try {
     const keyword = (req.query.keyword as string || req.query.search as string || '').trim();
     const department = req.query.department as string;

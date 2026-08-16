@@ -91,8 +91,7 @@ export const FacultySearch: React.FC = () => {
     setLoadingDetail(true);
     setSelectedStudent(null);
     try {
-      // Use public/members endpoint or custom faculty view
-      const res = await api.get(`/public/members/${id}`);
+      const res = await api.get(`/faculty/students/${id}`);
       if (res.data.success) {
         setSelectedStudent(res.data.data);
       }

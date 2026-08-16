@@ -6,6 +6,13 @@ import { prisma } from '../config/prisma.js';
 
 export async function runSeed() {
   console.log('--- Starting Database Seeding ---');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Database seeding is disabled in production.');
+  }
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+    throw new Error('Destructive seed is disabled. Set ALLOW_DESTRUCTIVE_SEED=true only for local development.');
+  }
+
   const seedPassword = process.env.SEED_DEFAULT_PASSWORD;
   if (
     !seedPassword ||
