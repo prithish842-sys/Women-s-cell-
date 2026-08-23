@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../utils/api.js';
+import api, { resolveUploadUrl } from '../../utils/api.js';
 import { useAuth } from '../../contexts/AuthContext.js';
-import { Save, AlertTriangle, CheckCircle, RefreshCw, BookOpen, Phone, User, Briefcase, Award, ExternalLink } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext.js';
+import { StudentProfileHero } from '../../components/student/StudentProfileHero.js';
+import { Save, AlertTriangle, CheckCircle, RefreshCw, BookOpen, User, Briefcase, Award, ExternalLink, ImagePlus, KeyRound, Languages, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
 
 interface SkillRecord {
   _id: string;
@@ -17,11 +19,25 @@ interface SkillRecord {
 }
 
 export const StudentProfileView: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { user, profile, refreshUser } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [heroUploading, setHeroUploading] = useState(false);
+  const [heroMessage, setHeroMessage] = useState('');
+  const [heroError, setHeroError] = useState('');
+  const [themeChoice, setThemeChoice] = useState(() => {
+    if (typeof window === 'undefined') return 'light';
+    return window.localStorage.getItem('singa-dashboard-theme') || 'light';
+  });
 
   // Form Fields State
   const [phone, setPhone] = useState('');
@@ -42,6 +58,12 @@ export const StudentProfileView: React.FC = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    document.documentElement.dataset.dashboardTheme = themeChoice;
+    window.localStorage.setItem('singa-dashboard-theme', themeChoice);
+  }, [themeChoice]);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -149,6 +171,120 @@ export const StudentProfileView: React.FC = () => {
     }
   };
 
+  const submitPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage('');
+    setPasswordError('');
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const res = await api.put('/auth/change-password', { oldPassword, newPassword });
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Could not update password.');
+      }
+      setPasswordMessage('Password updated successfully.');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || (err as Error).message || 'Could not update password.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const uploadDashboardHero = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    setHeroMessage('');
+    setHeroError('');
+
+    const allowedTypes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]);
+
+    if (!allowedTypes.has(file.type)) {
+      setHeroError('Choose a JPG, PNG, or WEBP image.');
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setHeroError('Dashboard background must be 3 MB or smaller.');
+      return;
+    }
+
+    setHeroUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('heroImage', file);
+
+      const res = await api.put(
+        '/students/me/dashboard-hero',
+        formData,
+      );
+
+      if (!res.data?.success) {
+        throw new Error(
+          res.data?.message ||
+            'Could not update dashboard background.',
+        );
+      }
+
+      await refreshUser();
+      setHeroMessage('Dashboard background updated.');
+    } catch (err: any) {
+      setHeroError(
+        err.response?.data?.message ||
+          err.message ||
+          'Could not update dashboard background.',
+      );
+    } finally {
+      setHeroUploading(false);
+    }
+  };
+
+  const resetDashboardHero = async () => {
+    setHeroMessage('');
+    setHeroError('');
+    setHeroUploading(true);
+
+    try {
+      const res = await api.delete(
+        '/students/me/dashboard-hero',
+      );
+
+      if (!res.data?.success) {
+        throw new Error(
+          res.data?.message ||
+            'Could not reset dashboard background.',
+        );
+      }
+
+      await refreshUser();
+      setHeroMessage('Default dashboard background restored.');
+    } catch (err: any) {
+      setHeroError(
+        err.response?.data?.message ||
+          err.message ||
+          'Could not reset dashboard background.',
+      );
+    } finally {
+      setHeroUploading(false);
+    }
+  };
+
   const targetCareer = futurePlan?.preferredIndustry || futurePlan?.businessIdea || 'Not added yet';
   const primarySkill = skills.find(skill => skill.isPrimary) || skills[0];
   const skillLevelScores = { BEGINNER: 1, INTERMEDIATE: 2, ADVANCED: 3, EXPERT: 4 };
@@ -159,6 +295,9 @@ export const StudentProfileView: React.FC = () => {
     : averageSkillScore >= 2.5 ? 'Intermediate to Advanced'
       : averageSkillScore >= 1.5 ? 'Beginner to Intermediate'
         : skills.length ? 'Beginner' : 'No skills logged';
+        const profileImage = resolveUploadUrl((profile as any)?.profileImage);
+        const dashboardHeroImage = resolveUploadUrl((profile as any)?.dashboardHeroImage);
+        const profileCompletion = progress?.profileCompletionPercentage ?? 0;
 
   if (loading) {
     return (
@@ -170,12 +309,32 @@ export const StudentProfileView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 fade-in-up">
-      {/* Page header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h1 className="font-serif text-2xl font-bold text-maroon-700">My Profile Details</h1>
-        <p className="text-xs text-gray-500">Edit your college academic tracking parameters and public Bio introduction.</p>
-      </div>
+    <div className="space-y-5 fade-in-up">
+      <section className="grid gap-4 xl:grid-cols-[1.5fr_0.8fr]">
+        <StudentProfileHero
+          name={user?.name}
+          email={user?.email}
+          department={department}
+          course={course}
+          bio={bio}
+          status={(profile as any)?.academicStatus || 'ACTIVE'}
+          profileImage={profileImage}
+          backgroundImage={dashboardHeroImage}
+          stats={[
+            { label: 'Profile completion', value: `${profileCompletion}%` },
+            { label: 'Skills logged', value: skills.length },
+            { label: 'Primary skill', value: primarySkill?.skillName || 'Not set' },
+            { label: 'Future plan', value: targetCareer },
+          ]}
+        />
+        <div className="rounded-[20px] border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)] sm:p-6"><h2 className="text-lg font-black text-[#071426]">Profile Completion</h2><div className="mt-4 flex items-center gap-5"><div className="grid h-28 w-28 shrink-0 place-items-center rounded-full bg-[conic-gradient(#2563eb_0deg,#7c3aed_calc(var(--completion)*1deg),#e9eefb_calc(var(--completion)*1deg))] p-3" style={{ '--completion': `${Math.min(profileCompletion, 100) * 3.6}` } as React.CSSProperties}><div className="grid h-full w-full place-items-center rounded-full bg-white text-center"><strong className="text-2xl font-black text-[#071426]">{profileCompletion}%</strong></div></div><div className="space-y-2 text-xs font-bold text-[#52617f]"><p>{phone ? '✓' : '○'} Contact details</p><p>{department && course ? '✓' : '○'} Academic information</p><p>{skills.length ? '✓' : '○'} Skills & interests</p><p>{futurePlan ? '✓' : '○'} Future plan</p></div></div><button type="button" onClick={() => document.getElementById('profile-editor')?.scrollIntoView({ behavior: 'smooth' })} className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-[#c9d6ff] bg-[#f6f8ff] px-4 py-2.5 text-xs font-black text-[#2563eb]">Complete profile <span className="ml-2">→</span></button></div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)]"><h2 className="text-base font-black text-[#071426]">Personal Information</h2><dl className="mt-3 divide-y divide-[#eef2fb] text-xs"><div className="flex justify-between gap-3 py-2"><dt className="font-bold text-[#64748b]">Phone</dt><dd className="text-right font-black text-[#071426]">{phone || 'Not added'}</dd></div><div className="flex justify-between gap-3 py-2"><dt className="font-bold text-[#64748b]">Register number</dt><dd className="text-right font-black text-[#071426]">{user?.registerNumber || 'Protected'}</dd></div></dl></div>
+        <div className="rounded-xl border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)]"><h2 className="text-base font-black text-[#071426]">Academic Information</h2><dl className="mt-3 divide-y divide-[#eef2fb] text-xs"><div className="flex justify-between gap-3 py-2"><dt className="font-bold text-[#64748b]">Department</dt><dd className="text-right font-black text-[#071426]">{department || 'Not added'}</dd></div><div className="flex justify-between gap-3 py-2"><dt className="font-bold text-[#64748b]">Course</dt><dd className="text-right font-black text-[#071426]">{course || 'Not added'}</dd></div></dl></div>
+        <div className="rounded-xl border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)]"><h2 className="text-base font-black text-[#071426]">Skills & Interests</h2><div className="mt-3 flex flex-wrap gap-2">{skills.length ? skills.slice(0, 6).map((skill) => <span key={skill._id} className="rounded-lg bg-[#f4f1ff] px-2.5 py-1.5 text-[11px] font-black text-[#4f46e5]">{skill.skillName}</span>) : <p className="text-xs font-semibold text-[#64748b]">Add skills to build your portfolio.</p>}</div></div>
+      </section>
 
       {/* Notifications */}
       {errorMsg && (
@@ -193,7 +352,7 @@ export const StudentProfileView: React.FC = () => {
       )}
 
       {/* Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-150 p-6 sm:p-8 space-y-8 shadow-sm">
+      <form id="profile-editor" onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#e4eaff] p-6 sm:p-8 space-y-8 shadow-[0_12px_26px_rgba(7,20,38,0.04)]">
         {/* Row 1: Biographical metadata */}
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-maroon-700 pb-1.5 border-b border-gray-100 flex items-center space-x-2">
@@ -412,6 +571,100 @@ export const StudentProfileView: React.FC = () => {
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+        <form onSubmit={submitPassword} className="rounded-xl border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)] sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef3ff] text-[#2563eb]"><KeyRound className="h-5 w-5" /></span>
+            <div>
+              <h2 className="text-lg font-black text-[#071426]">Password & Security</h2>
+              <p className="mt-1 text-xs font-semibold text-[#64748b]">Update your authenticated student account password.</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <label className="block text-xs font-bold text-[#52617f]">Current password<input required type="password" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-[#dfe7fb] px-3 py-2.5 text-sm outline-none focus:border-[#2563eb]" /></label>
+            <label className="block text-xs font-bold text-[#52617f]">New password<input required minLength={8} type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-[#dfe7fb] px-3 py-2.5 text-sm outline-none focus:border-[#2563eb]" /></label>
+            <label className="block text-xs font-bold text-[#52617f]">Confirm password<input required minLength={8} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="mt-1 w-full rounded-lg border border-[#dfe7fb] px-3 py-2.5 text-sm outline-none focus:border-[#2563eb]" /></label>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button disabled={passwordSaving} className="inline-flex items-center gap-2 rounded-lg bg-[linear-gradient(135deg,#2563eb,#1f8a8a)] px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Save className="h-4 w-4" />{passwordSaving ? 'Updating...' : 'Update password'}</button>
+            {passwordMessage && <p className="flex items-center gap-2 text-sm font-semibold text-[#059669]"><CheckCircle className="h-4 w-4" />{passwordMessage}</p>}
+            {passwordError && <p className="flex items-center gap-2 text-sm font-semibold text-[#dc2626]"><AlertTriangle className="h-4 w-4" />{passwordError}</p>}
+          </div>
+        </form>
+
+        <aside className="rounded-xl border border-[#e4eaff] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)] sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#fff3e6] text-[#b45309]"><ShieldCheck className="h-5 w-5" /></span>
+            <div>
+              <h2 className="text-lg font-black text-[#071426]">Account Preferences</h2>
+              <p className="mt-1 text-xs font-semibold text-[#64748b]">Personal display preferences for this browser.</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#edf2fb] p-3">
+              <span className="inline-flex items-center gap-2 text-xs font-black text-[#52617f]"><Languages className="h-4 w-4 text-[#2563eb]" />Language</span>
+              <div className="inline-flex rounded-lg border border-[#dfe7fb] bg-[#f8fbff] p-1">
+                <button type="button" onClick={() => setLanguage('en')} className={`rounded-md px-3 py-1.5 text-xs font-black ${language === 'en' ? 'bg-white text-[#2563eb] shadow-sm' : 'text-[#64748b]'}`}>EN</button>
+                <button type="button" onClick={() => setLanguage('ta')} className={`rounded-md px-3 py-1.5 text-xs font-black ${language === 'ta' ? 'bg-white text-[#2563eb] shadow-sm' : 'text-[#64748b]'}`}>TA</button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[#edf2fb] p-3">
+              <span className="inline-flex items-center gap-2 text-xs font-black text-[#52617f]">{themeChoice === 'dark' ? <Moon className="h-4 w-4 text-[#2563eb]" /> : <Sun className="h-4 w-4 text-[#b45309]" />}Theme</span>
+              <div className="inline-flex rounded-lg border border-[#dfe7fb] bg-[#f8fbff] p-1">
+                <button type="button" onClick={() => setThemeChoice('light')} className={`rounded-md px-3 py-1.5 text-xs font-black ${themeChoice === 'light' ? 'bg-white text-[#2563eb] shadow-sm' : 'text-[#64748b]'}`}>Light</button>
+                <button type="button" onClick={() => setThemeChoice('dark')} className={`rounded-md px-3 py-1.5 text-xs font-black ${themeChoice === 'dark' ? 'bg-white text-[#2563eb] shadow-sm' : 'text-[#64748b]'}`}>Dark</button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#edf2fb] p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="inline-flex items-center gap-2 text-xs font-black text-[#52617f]">
+                  <ImagePlus className="h-4 w-4 text-[#7c3aed]" />
+                  Dashboard hero background
+                </span>
+
+                <div className="flex flex-wrap gap-2">
+                  <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-3 py-2 text-xs font-black text-white ${heroUploading ? 'pointer-events-none opacity-60' : ''}`}>
+                    <ImagePlus className="h-4 w-4" />
+                    {heroUploading ? 'Uploading...' : 'Choose Image'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={heroUploading}
+                      onChange={uploadDashboardHero}
+                    />
+                  </label>
+
+                  {dashboardHeroImage ? (
+                    <button
+                      type="button"
+                      disabled={heroUploading}
+                      onClick={resetDashboardHero}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#f5c9d7] bg-white px-3 py-2 text-xs font-black text-[#e91670] disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Reset
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] font-semibold leading-5 text-[#64748b]">
+                JPG, PNG or WEBP · up to 3 MB. The same image is used on your Profile and Dashboard hero.
+              </p>
+
+              {heroMessage ? (
+                <p className="mt-2 text-xs font-bold text-[#059669]">{heroMessage}</p>
+              ) : null}
+
+              {heroError ? (
+                <p className="mt-2 text-xs font-bold text-[#dc2626]">{heroError}</p>
+              ) : null}
+            </div>
+          </div>
+        </aside>
       </section>
     </div>
   );

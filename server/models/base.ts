@@ -133,6 +133,7 @@ function studentProfileData(data: any) {
     ...(data.registerNumber !== undefined ? { registerNumber: data.registerNumber } : {}),
     ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
     ...(data.profileImage !== undefined ? { profileImage: data.profileImage || null } : {}),
+    ...(data.dashboardHeroImage !== undefined ? { dashboardHeroImage: data.dashboardHeroImage || null } : {}),
     ...(data.department !== undefined ? { department: data.department } : {}),
     ...(data.course !== undefined ? { course: data.course } : {}),
     ...(data.bio !== undefined ? { bio: data.bio || null } : {}),

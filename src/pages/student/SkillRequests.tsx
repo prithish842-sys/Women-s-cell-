@@ -5,6 +5,7 @@ import { Award, CalendarDays, CheckCircle2, RefreshCw } from 'lucide-react';
 export const StudentSkillRequests: React.FC = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [filter, setFilter] = useState('all');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -25,6 +26,17 @@ export const StudentSkillRequests: React.FC = () => {
 
   const markRead = async (id: string) => {
     await api.patch(`/students/me/skill-requests/${id}/read`);
+    await load();
+  };
+
+  const respond = async (id: string) => {
+    await api.patch(`/students/me/skill-requests/${id}/respond`, { message: drafts[id] || '' });
+    setDrafts((current) => ({ ...current, [id]: '' }));
+    await load();
+  };
+
+  const withdraw = async (id: string) => {
+    await api.patch(`/students/me/skill-requests/${id}/withdraw-response`);
     await load();
   };
 
@@ -58,8 +70,19 @@ export const StudentSkillRequests: React.FC = () => {
                   <div className="flex flex-wrap gap-1">{row.matchedSkills.map((skill: string) => <span key={skill} className="px-2 py-0.5 rounded bg-cream-100 text-maroon-700 text-[10px] font-bold">{skill}</span>)}</div>
                   <p className="text-[11px] text-gray-400 flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Deadline: {row.skillRequest.deadline ? new Date(row.skillRequest.deadline).toLocaleDateString() : 'Flexible'}</p>
                   <p className="text-xs text-gray-500">Contact: {row.skillRequest.contactPerson || "Women's Empowerment Cell"} {row.skillRequest.contactInformation ? `· ${row.skillRequest.contactInformation}` : ''}</p>
+                  <p className="text-xs font-bold text-gray-600">Response: {row.responseStatus || 'PENDING'}{row.respondedAt ? ` · ${new Date(row.respondedAt).toLocaleDateString()}` : ''}</p>
+                  {row.responseMessage && <p className="rounded-md bg-blue-50 p-2 text-xs text-blue-800">Your note: {row.responseMessage}</p>}
                 </div>
-                {!row.isRead && <button onClick={() => markRead(row._id)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-maroon-700 text-white rounded text-xs font-bold"><CheckCircle2 className="w-3.5 h-3.5" /> Mark Read</button>}
+                <div className="w-full space-y-2 md:max-w-xs">
+                  {row.skillRequest.status === 'OPEN' && (
+                    <>
+                      <textarea value={drafts[row._id] ?? row.responseMessage ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [row._id]: event.target.value }))} maxLength={500} placeholder="Optional response note" className="min-h-20 w-full rounded-md border px-3 py-2 text-xs" />
+                      <button onClick={() => respond(row._id)} className="inline-flex w-full items-center justify-center gap-1 rounded bg-maroon-700 px-3 py-2 text-xs font-bold text-white"><CheckCircle2 className="h-3.5 w-3.5" /> {row.responseStatus === 'INTERESTED' ? 'Update Response' : 'Respond Interested'}</button>
+                    </>
+                  )}
+                  {row.responseStatus === 'INTERESTED' && <button onClick={() => withdraw(row._id)} className="inline-flex w-full items-center justify-center gap-1 rounded border px-3 py-2 text-xs font-bold">Withdraw Response</button>}
+                  {!row.isRead && <button onClick={() => markRead(row._id)} className="inline-flex w-full items-center justify-center gap-1 rounded bg-gray-900 px-3 py-2 text-xs font-bold text-white"><CheckCircle2 className="w-3.5 h-3.5" /> Mark Read</button>}
+                </div>
               </div>
             </article>
           ))}

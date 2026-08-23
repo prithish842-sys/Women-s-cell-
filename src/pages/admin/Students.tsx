@@ -1,21 +1,39 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api.js';
 import { 
   Edit, SlidersHorizontal, CheckCircle, 
-  AlertTriangle, Star, UserX 
+  AlertTriangle, Star, UserX, UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PageWrapper } from '../../components/common/PageWrapper.js';
+import { AdminNotice, AdminPageHeader, AdminStatCard, adminButton, adminCard, adminField, formatNumber } from '../../components/admin/AdminUI.js';
+import { GraduationCap, Search, UserPlus, Users } from 'lucide-react';
 
 export const AdminStudents: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [students, setStudents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<{
+    page: number;
+    totalPages: number;
+    total: number;
+    departments: string[];
+    programLevels: { ug: number; pg: number };
+  }>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    departments: [],
+    programLevels: { ug: 0, pg: 0 },
+  });
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedClub, setSelectedClub] = useState(''); // 'all', 'yes', 'no'
 
@@ -28,16 +46,34 @@ export const AdminStudents: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [page, search, selectedDept]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedDept]);
 
   const fetchStudents = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await api.get('/admin/students');
+      const res = await api.get('/admin/students', {
+        params: {
+          page,
+          limit: 25,
+          search: search.trim() || undefined,
+          department: selectedDept || undefined,
+        },
+      });
       if (res.data.success) {
         setStudents(res.data.data);
         setFiltered(res.data.data);
+        setMeta({
+          page: res.data.meta?.page || page,
+          totalPages: res.data.meta?.totalPages || 1,
+          total: res.data.meta?.total ?? res.data.data.length,
+          departments: Array.isArray(res.data.meta?.departments) ? res.data.meta.departments : [],
+          programLevels: res.data.meta?.programLevels || { ug: 0, pg: 0 },
+        });
       } else {
         setErrorMsg('Failed to query system student records.');
       }
@@ -52,19 +88,6 @@ export const AdminStudents: React.FC = () => {
   useEffect(() => {
     let result = [...students];
 
-    if (search.trim()) {
-      const term = search.toLowerCase();
-      result = result.filter(st => 
-        st.name.toLowerCase().includes(term) || 
-        st.registerNumber.toLowerCase().includes(term) ||
-        st.course.toLowerCase().includes(term)
-      );
-    }
-
-    if (selectedDept) {
-      result = result.filter(st => st.department === selectedDept);
-    }
-
     if (selectedClub === 'yes') {
       result = result.filter(st => st.isSingaPenMember === true);
     } else if (selectedClub === 'no') {
@@ -72,7 +95,7 @@ export const AdminStudents: React.FC = () => {
     }
 
     setFiltered(result);
-  }, [search, selectedDept, selectedClub, students]);
+  }, [selectedClub, students]);
 
   const handleEditClick = (student: any) => {
     setEditingStudent(student);
@@ -129,30 +152,50 @@ export const AdminStudents: React.FC = () => {
     }
   };
 
-  const uniqueDepts = Array.from(new Set(students.map(st => st.department).filter(Boolean)));
+  const handleToggleAccount = async (student: any) => {
+    const nextActive = student.isActive === false;
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const res = await api.patch(`/admin/students/${student._id}/account-status`, { isActive: nextActive });
+      if (!res.data.success) throw new Error(res.data.message || 'Could not update account status.');
+      setSuccessMsg(`${student.name}'s linked account is now ${nextActive ? 'active' : 'suspended'}.`);
+      setStudents(current => current.map(row => row._id === student._id ? { ...row, isActive: nextActive } : row));
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || err.message || 'Could not update linked account status.');
+    }
+  };
+
+  const uniqueDepts = meta.departments;
+  const activeCount = students.filter(st => st.academicStatus !== 'PASSED_OUT' && st.isActive !== false).length;
+  const memberCount = students.filter(st => st.isSingaPenMember).length;
+  const newCount = students.filter(st => {
+    const created = st.createdAt ? new Date(st.createdAt).getTime() : 0;
+    return created && Date.now() - created < 30 * 24 * 60 * 60 * 1000;
+  }).length;
 
   return (
     <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="border-b border-gray-200 pb-4">
-          <h1 className="font-serif text-2xl font-bold text-maroon-700">Student Directory Management</h1>
-          <p className="text-xs text-gray-500">Edit academic levels, promote Singa Pen executive club titles, or deactivate profiles.</p>
-        </div>
+      <div className="space-y-5">
+        <AdminPageHeader
+          title="Student Management"
+          description="Users + Students are merged here: manage registered student profiles, linked account status, academic details, UG/PG departments, and Singa Pen participation."
+          action={<button onClick={fetchStudents} className={adminButton}><UserPlus className="h-4 w-4" /> Refresh Students</button>}
+        />
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <AdminStatCard label="Total Students" value={formatNumber(meta.total || students.length)} icon={Users} tone="purple" footer={`UG ${formatNumber(meta.programLevels.ug)} · PG ${formatNumber(meta.programLevels.pg)}`} />
+          <AdminStatCard label="Active Students" value={formatNumber(activeCount)} icon={GraduationCap} tone="blue" footer={`Inactive / alumni: ${formatNumber(Math.max(students.length - activeCount, 0))}`} />
+          <AdminStatCard label="New This Month" value={formatNumber(newCount)} icon={UserPlus} tone="orange" footer="Based on profile creation date" />
+          <AdminStatCard label="Singa Pen Members" value={formatNumber(memberCount)} icon={CheckCircle} tone="teal" footer="Participation enabled" />
+        </section>
 
         {/* Notifications */}
         {errorMsg && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-start space-x-2">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
-            <span>{errorMsg}</span>
-          </div>
+          <AdminNotice type="error">{errorMsg}</AdminNotice>
         )}
 
         {successMsg && (
-          <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl flex items-start space-x-2">
-            <CheckCircle className="w-5 h-5 shrink-0 text-green-500 mt-0.5" />
-            <span>{successMsg}</span>
-          </div>
+          <AdminNotice type="success">{successMsg}</AdminNotice>
         )}
 
         {/* Edit Overlay Sheet */}
@@ -253,25 +296,22 @@ export const AdminStudents: React.FC = () => {
         </AnimatePresence>
 
         {/* Filter search block */}
-        <section className="bg-white p-5 rounded-xl border border-gray-150 shadow-sm space-y-4">
-          <div className="flex items-center space-x-1.5 text-xs font-bold text-maroon-700 pb-2 border-b border-gray-100">
+        <section className={`${adminCard} p-4 space-y-4`}>
+          <div className="flex items-center space-x-1.5 text-xs font-black text-[#10205a] pb-2 border-b border-[#edf2fb]">
             <SlidersHorizontal className="w-4 h-4 text-gold-600" />
-            <span>Query Parameters</span>
+            <span>Filters</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <input
-              type="text"
-              placeholder="Search name, register number..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-maroon-700 focus:outline-none"
-            />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px_220px]">
+            <label className="relative">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#40528a]" />
+              <input type="text" placeholder="Search by name, register number..." value={search} onChange={(e) => setSearch(e.target.value)} className={`${adminField} w-full pr-9`} />
+            </label>
 
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-maroon-700"
+              className={`${adminField} w-full`}
             >
               <option value="">All Departments</option>
               {uniqueDepts.map(dept => (
@@ -282,7 +322,7 @@ export const AdminStudents: React.FC = () => {
             <select
               value={selectedClub}
               onChange={(e) => setSelectedClub(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-maroon-700"
+              className={`${adminField} w-full`}
             >
               <option value="">All Club Toggles</option>
               <option value="yes">Singa Pen Executives Only</option>
@@ -301,21 +341,25 @@ export const AdminStudents: React.FC = () => {
             No students match search filters.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-150 shadow-sm overflow-hidden">
+          <div className={`${adminCard} overflow-hidden`}>
+            <div className="flex items-center justify-between px-4 py-4">
+              <h2 className="text-lg font-black text-[#071247]">All Students ({formatNumber(filtered.length)})</h2>
+              <span className="text-xs font-bold text-[#63708f]">Page {formatNumber(meta.page)} of {formatNumber(meta.totalPages)} · {formatNumber(meta.total)} real records</span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full min-w-[900px] text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-[#f7faff] border-b border-[#edf2fb] text-[10px] font-black text-[#17235c] uppercase tracking-normal">
                     <th className="px-6 py-3">Register Number</th>
                     <th className="px-6 py-3">Student Name</th>
                     <th className="px-6 py-3">Department & Course</th>
                     <th className="px-6 py-3">Study Year</th>
-                    <th className="px-6 py-3">Academic Status</th>
+                    <th className="px-6 py-3">Academic / Account Status</th>
                     <th className="px-6 py-3">Singa Pen Status</th>
                     <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-gray-700">
+                <tbody className="divide-y divide-[#edf2fb] text-[#1b2b61]">
                   {filtered.map((st) => (
                     <tr key={st._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-gray-900">{st.registerNumber}</td>
@@ -331,11 +375,18 @@ export const AdminStudents: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 font-semibold text-maroon-700">Year {st.currentStudyYear}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                          st.academicStatus === 'PASSED_OUT' ? 'bg-gray-100 text-gray-700' : 'bg-green-50 text-green-700'
-                        }`}>
-                          {st.academicStatus}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
+                            st.academicStatus === 'PASSED_OUT'
+                              ? 'bg-white text-slate-700 border border-slate-200'
+                              : 'bg-green-50 text-green-700'
+                          }`}>
+                            {st.academicStatus}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${st.isActive === false ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                            {st.isActive === false ? 'ACCOUNT SUSPENDED' : 'ACCOUNT ACTIVE'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         {st.isSingaPenMember ? (
@@ -351,14 +402,21 @@ export const AdminStudents: React.FC = () => {
                         <button
                           onClick={() => handleEditClick(st)}
                           title="Update Parameters"
-                          className="p-1.5 hover:bg-rose-50 text-gray-700 hover:text-maroon-700 rounded transition-all inline-flex items-center"
+                          className="p-1.5 hover:bg-rose-50 text-[#1b2b61] hover:text-maroon-700 rounded transition-all inline-flex items-center"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleToggleAccount(st)}
+                          title={st.isActive === false ? 'Activate linked account' : 'Suspend linked account'}
+                          className={`p-1.5 rounded transition-all inline-flex items-center ${st.isActive === false ? 'text-emerald-700 hover:bg-emerald-50' : 'text-[#1b2b61] hover:bg-orange-50 hover:text-orange-700'}`}
+                        >
+                          {st.isActive === false ? <UserCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                        </button>
+                        <button
                           onClick={() => handleDeleteStudent(st._id, st.name)}
                           title="Purge Profile"
-                          className="p-1.5 hover:bg-red-50 text-gray-700 hover:text-red-700 rounded transition-all inline-flex items-center"
+                          className="p-1.5 hover:bg-red-50 text-[#1b2b61] hover:text-red-700 rounded transition-all inline-flex items-center"
                         >
                           <UserX className="w-4 h-4" />
                         </button>
@@ -367,6 +425,11 @@ export const AdminStudents: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="flex items-center justify-between border-t border-[#edf2fb] px-4 py-3">
+              <button type="button" disabled={page <= 1} onClick={() => setPage(current => Math.max(current - 1, 1))} className="rounded-lg border border-[#dfe7f6] px-3 py-2 text-xs font-black text-[#415176] disabled:opacity-40">Previous</button>
+              <span className="text-xs font-bold text-[#63708f]">Showing up to 25 records per page</span>
+              <button type="button" disabled={page >= meta.totalPages} onClick={() => setPage(current => current + 1)} className="rounded-lg border border-[#dfe7f6] px-3 py-2 text-xs font-black text-[#415176] disabled:opacity-40">Next</button>
             </div>
           </div>
         )}

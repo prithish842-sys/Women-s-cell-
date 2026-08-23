@@ -18,6 +18,8 @@ Full-stack React, Express, PostgreSQL, and Prisma portal for the Singa Pen Women
 Frontend: http://localhost:5173
 Backend:  http://localhost:5000
 Health:   http://localhost:5000/api/v1/health
+Live:     http://localhost:5000/api/v1/health/live
+Ready:    http://localhost:5000/api/v1/health/ready
 API:      http://localhost:5000/api/v1
 Public uploads: http://localhost:5000/uploads
 Prisma Studio: http://localhost:5555
@@ -116,6 +118,12 @@ GitHub CI runs:
 - TypeScript checks
 - tests
 - build
+
+## Production Operations
+
+The backend supports graceful shutdown, liveness/readiness health checks, and optional PM2 cluster supervision for VPS deployments. `npm start` remains the plain single-process production start command, and `npm run dev` remains the local Docker PostgreSQL + Express watcher + Vite workflow.
+
+See [docs/deployment.md](docs/deployment.md) for server reliability, PM2, platform scaling, database pool, and runtime upload storage notes.
 
 ## GitHub Safety
 

@@ -1,14 +1,36 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Languages, Menu, X, LogOut } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useAuth } from '../../contexts/AuthContext.js';
-import { Menu, X, LogOut } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useLanguage } from '../../contexts/LanguageContext.js';
+
+const publicLinks = [
+  { labelKey: 'home', path: '/' },
+  { labelKey: 'about', path: '/about' },
+  { labelKey: 'singaPenClub', path: '/members' },
+  { labelKey: 'schemes', path: '/schemes' },
+  { labelKey: 'skills', path: '/skills' },
+  { labelKey: 'safety', path: '/safety' },
+  { labelKey: 'gallery', path: '/gallery' },
+] as const;
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { language, toggleLanguage, t } = useLanguage();
+
+  const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path));
+
+  const dashboardPath = () => {
+    if (!user) return '/login';
+    if (user.role === 'ADMIN' || user.role === 'ICC_ADMIN') return '/admin/dashboard';
+    if (user.role === 'FACULTY') return '/faculty/dashboard';
+    if (user.role === 'STUDENT') return '/student/dashboard';
+    return '/';
+  };
 
   const handleLogout = () => {
     logout();
@@ -16,188 +38,108 @@ const Header: React.FC = () => {
     setMobileMenuOpen(false);
   };
 
-  const isActive = (path: string) => path === '/' ? location.pathname === path : location.pathname.startsWith(path);
-
-  const publicLinks = [
-    { label: 'Home', path: '/' },
-    { label: 'About', path: '/about' },
-    { label: 'Singa Pen Club', path: '/members' },
-    { label: 'Govt Schemes', path: '/schemes' },
-    { label: 'Skills', path: '/skills' },
-    { label: 'Gallery', path: '/gallery' },
-    { label: 'ICC Complaint', path: '/icc-complaint' },
-  ];
-
-  const getDashboardRedirect = () => {
-    if (!user) return '/login';
-    switch (user.role) {
-      case 'ADMIN':
-      case 'ICC_ADMIN':
-        return '/admin/dashboard';
-      case 'FACULTY':
-        return '/faculty/dashboard';
-      case 'STUDENT':
-        return '/student/dashboard';
-      default:
-        return '/';
-    }
-  };
-
   return (
-    <header className="sticky top-0 z-40 border-b border-amethyst/20 bg-white/90 shadow-sm backdrop-blur">
-      {/* College Identity Bar */}
-      <div className="bg-dark-purple text-orchid py-1.5 px-4 text-center text-xs tracking-wider font-serif border-b border-amethyst/35">
-        SANKARA COLLEGE OF SCIENCE AND COMMERCE • WOMEN'S EMPOWERMENT CELL HUB
-      </div>
+    <header className="sticky top-0 z-40 border-b border-[#dbe5f5] bg-white">
+      <div className="reference-container flex h-[56px] items-center justify-between gap-4">
+        <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Singa Pen Portal home">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[linear-gradient(135deg,#0b63ff,#7b2cff_52%,#ed1472)] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(30,80,210,0.25)]">
+            SP
+          </span>
+          <span className="text-[1.3rem] font-black leading-none tracking-[-0.02em] text-[#06123a]">
+            Singa Pen <span className="font-semibold text-[#0b63ff]">Portal</span>
+          </span>
+        </Link>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-18 justify-between">
-          {/* Logo & Portal Branding */}
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-dark-purple to-amethyst flex items-center justify-center text-white font-serif font-bold text-lg shadow-inner border border-thistle">
-                SP
-              </div>
-              <div>
-                <span className="block font-serif text-lg font-bold text-dark-purple leading-tight">
-                  Singa Pen Portal
-                </span>
-                <span className="block text-xs font-sans tracking-wide text-dark-purple/65 leading-none">
-                  Women's Empowerment Cell Hub
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 rounded-full border border-amethyst/14 bg-orchid/55 px-1.5 py-1">
-            {publicLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                aria-current={isActive(link.path) ? 'page' : undefined}
-                className={`rounded-full px-3.5 py-2 text-sm font-semibold transition-colors duration-200 ${
-                  isActive(link.path)
-                    ? 'bg-white text-dark-purple shadow-sm'
-                    : 'text-dark-purple/68 hover:bg-white/70 hover:text-amethyst'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-
-            {/* Portal Action / Profile Actions */}
-            <div className="ml-3 flex items-center space-x-2 pl-3">
-              {user ? (
-                <>
-                  <Link
-                    to={getDashboardRedirect()}
-                    className="flex items-center space-x-1.5 rounded-full bg-gradient-to-r from-dark-purple to-amethyst px-4 py-2 text-sm font-semibold text-white shadow transition-[filter] hover:brightness-105"
-                  >
-                    <span>Go to Dashboard</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    title="Sign Out"
-                    className="rounded-full p-2 text-dark-purple/60 transition-colors hover:bg-red-50 hover:text-red-600"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="px-3 py-2 text-sm font-semibold text-dark-purple/72 transition-colors hover:text-amethyst"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="rounded-full border border-amethyst/40 bg-gradient-to-r from-dark-purple to-amethyst px-4 py-2 text-sm font-semibold text-white shadow-sm transition-[filter] hover:brightness-105"
-                  >
-                    Register
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-
-          {/* Mobile hamburger menu */}
-          <div className="flex items-center lg:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Open public navigation"
-              className="rounded-full p-2 text-dark-purple/70 hover:bg-thistle/55 hover:text-amethyst focus:outline-none focus:ring-2 focus:ring-amethyst/30"
+        <nav className="hidden items-center gap-8 lg:flex">
+          {publicLinks.map((link) => (
+            <Link
+              key={link.path}
+              to={link.path}
+              aria-current={isActive(link.path) ? 'page' : undefined}
+              className={`relative py-5 text-[0.78rem] font-black text-[#06123a] transition-colors hover:text-[#075cff] ${
+                isActive(link.path) ? 'text-[#075cff] after:absolute after:inset-x-0 after:bottom-2 after:h-0.5 after:rounded-full after:bg-[#075cff]' : ''
+              }`}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
+              {t(link.labelKey)}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-3 lg:flex">
+          <button type="button" onClick={toggleLanguage} className="inline-flex items-center gap-2 rounded-md border border-[#cfd8ea] px-4 py-2.5 text-[0.82rem] font-black text-[#06123a]" aria-label="Switch language">
+            <Languages className="h-4 w-4" /> {language === 'en' ? t('languageEnglish') : t('languageTamil')}
+          </button>
+          {user ? (
+            <>
+              <Link to={dashboardPath()} className="rounded-md border border-[#cfd8ea] px-5 py-2.5 text-[0.82rem] font-black text-[#06123a]">
+                {t('dashboard')}
+              </Link>
+              <button onClick={handleLogout} className="grid h-10 w-10 place-items-center rounded-md border border-[#ffd4df] text-[#e41165]" aria-label="Sign out">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="rounded-md border border-[#cfd8ea] px-5 py-2.5 text-[0.82rem] font-black text-[#06123a]">
+                {t('signIn')}
+              </Link>
+              <Link to="/register" className="rounded-md bg-[#e91670] px-5 py-2.5 text-[0.82rem] font-black text-white shadow-[0_10px_22px_rgba(233,22,112,0.18)]">
+                {t('register')}
+              </Link>
+            </>
+          )}
         </div>
+
+        <button
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          className="grid h-10 w-10 place-items-center rounded-md border border-[#cfd8ea] text-[#06123a] lg:hidden"
+          aria-label="Toggle navigation"
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
 
-      {/* Mobile Drawer menu with AnimatePresence */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="lg:hidden overflow-hidden border-t border-amethyst/20 bg-white px-4 pb-4 pt-2 shadow-inner"
+            className="overflow-hidden border-t border-[#dbe5f5] bg-white lg:hidden"
           >
-            {publicLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={() => setMobileMenuOpen(false)}
-                aria-current={isActive(link.path) ? 'page' : undefined}
-                className={`block rounded-xl px-3 py-2.5 text-base font-semibold ${
-                  isActive(link.path)
-                    ? 'bg-thistle/70 text-dark-purple'
-                    : 'text-dark-purple/75 hover:text-amethyst hover:bg-thistle/55'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-
-            <div className="pt-4 border-t border-amethyst/20 space-y-2">
-              {user ? (
-                <>
-                  <Link
-                    to={getDashboardRedirect()}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block text-center w-full px-4 py-2.5 bg-gradient-to-r from-dark-purple to-amethyst hover:brightness-105 text-white rounded-md text-base font-medium shadow"
-                  >
-                    Go to Dashboard
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center justify-center space-x-1.5 w-full px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-md text-base font-medium"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span>Sign Out</span>
-                  </button>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    to="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block text-center px-4 py-2.5 border border-amethyst/30 text-dark-purple rounded-md text-base font-medium hover:bg-thistle/55"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block text-center px-4 py-2.5 bg-gradient-to-r from-dark-purple to-amethyst text-white rounded-md text-base font-medium hover:brightness-105"
-                  >
-                    Register
-                  </Link>
-                </div>
-              )}
+            <div className="grid gap-1 px-4 py-3">
+              {publicLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`rounded-md px-3 py-2.5 text-sm font-black ${isActive(link.path) ? 'bg-blue-50 text-[#075cff]' : 'text-[#06123a]'}`}
+                >
+                  {t(link.labelKey)}
+                </Link>
+              ))}
+              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#edf2fb] pt-3">
+                <button type="button" onClick={toggleLanguage} className="col-span-2 rounded-md border border-[#cfd8ea] px-4 py-2 text-center text-sm font-black">
+                  {language === 'en' ? t('languageEnglish') : t('languageTamil')}
+                </button>
+                {user ? (
+                  <>
+                    <Link to={dashboardPath()} onClick={() => setMobileMenuOpen(false)} className="rounded-md border border-[#cfd8ea] px-4 py-2 text-center text-sm font-black">
+                      {t('dashboard')}
+                    </Link>
+                    <button onClick={handleLogout} className="rounded-md bg-[#e91670] px-4 py-2 text-sm font-black text-white">{t('signOut')}</button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="rounded-md border border-[#cfd8ea] px-4 py-2 text-center text-sm font-black">
+                      {t('signIn')}
+                    </Link>
+                    <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="rounded-md bg-[#e91670] px-4 py-2 text-center text-sm font-black text-white">
+                      {t('register')}
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

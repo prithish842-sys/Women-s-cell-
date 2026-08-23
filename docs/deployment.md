@@ -95,9 +95,112 @@ It starts only the Express backend. It does not start Docker, Vite, seed data, o
 
 ```text
 https://your-backend-domain.example/api/v1/health
+https://your-backend-domain.example/api/v1/health/live
+https://your-backend-domain.example/api/v1/health/ready
 ```
 
-The health endpoint confirms server and database connectivity without exposing secrets.
+The original health endpoint confirms server and database connectivity without exposing secrets. Liveness confirms the Node process is alive. Readiness confirms the instance is ready to receive traffic and returns `503` during shutdown or database unavailability.
+
+## Server Reliability & Scaling
+
+The backend is still the same architecture:
+
+```text
+Load balancer / process manager / hosting platform
+        |
+        v
+Stateless Express backend instance(s)
+        |
+        v
+Shared managed PostgreSQL
+```
+
+### Graceful shutdown
+
+The server keeps a reference to the Node HTTP server and coordinates shutdown in one place. On `SIGINT`, `SIGTERM`, `uncaughtException`, or `unhandledRejection`, the backend:
+
+1. Marks the instance not ready.
+2. Stops accepting new HTTP connections.
+3. Lets active requests finish.
+4. Disconnects Prisma.
+5. Exits so the process manager or host can restart it when appropriate.
+
+`GRACEFUL_SHUTDOWN_TIMEOUT_MS` defaults to `15000`. If requests do not finish before the timeout, remaining sockets are closed and fatal shutdowns exit non-zero.
+
+### Health endpoints
+
+Use these endpoints for operations:
+
+| Endpoint | Purpose | Database dependency | Expected use |
+| --- | --- | --- | --- |
+| `/api/v1/health` | Backward-compatible server/database check | Yes | Existing checks and smoke tests |
+| `/api/v1/health/live` | Process liveness | No | Process manager / container liveness |
+| `/api/v1/health/ready` | Traffic readiness | Yes, bounded by `READY_DATABASE_TIMEOUT_MS` | Load balancer readiness |
+
+During graceful shutdown, readiness returns `503` so a load balancer can stop routing new requests to the instance. Liveness may remain `200` until the process exits.
+
+### HTTP server timeouts
+
+The production server sets these environment-driven defaults:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SERVER_REQUEST_TIMEOUT_MS` | `120000` | Allows normal API, upload, and AI requests without hanging indefinitely. |
+| `SERVER_HEADERS_TIMEOUT_MS` | `65000` | Bounds slow header delivery. |
+| `SERVER_KEEP_ALIVE_TIMEOUT_MS` | `5000` | Keeps idle keep-alive sockets short-lived for reloads and deployments. |
+
+Adjust only after measuring real request behavior.
+
+### VPS process management with PM2
+
+`npm start` remains the plain production command:
+
+```powershell
+npm start
+```
+
+For a VPS or self-hosted Node environment, PM2 can supervise and cluster the compiled backend:
+
+```powershell
+npm run build
+npm run prisma:deploy
+npm run start:pm2
+pm2 status
+npm run restart:pm2
+npm run stop:pm2
+```
+
+`ecosystem.config.cjs` defaults `PM2_INSTANCES` to `2`. This is a conservative starting point for small deployments; it is not a capacity guarantee. You may set `PM2_INSTANCES=max` after load testing and after confirming PostgreSQL connection capacity.
+
+PM2 is not used by `npm run dev`, does not start Docker, and does not run seeds or development migrations.
+
+### Platform-native scaling
+
+Render, Railway, Fly.io, AWS, Azure, GCP, and similar platforms may already supervise processes and run multiple replicas. In those environments, use the platform's native replica/scaling controls instead of forcing PM2, unless the platform explicitly recommends PM2.
+
+### Stateless backend requirement
+
+JWT authentication works across multiple backend replicas because user session authority is not stored in one Node process. Do not add business-critical per-user state in module-level `Map`, `Set`, arrays, or globals. Keep durable user data in PostgreSQL or another shared production store.
+
+### Database connection pool considerations
+
+Each backend replica owns its own Prisma connection pool. Keep this relationship within the managed PostgreSQL plan:
+
+```text
+replica count x connections per replica <= PostgreSQL connection capacity
+```
+
+Use provider-supported `DATABASE_URL` pool parameters only when your database host documents them. Do not assume unlimited horizontal scaling.
+
+### Runtime upload limitation
+
+Current file uploads are stored on the local server disk under `uploads/`. This is fine for local development and a single persistent backend host. With multiple physical backend replicas, a file uploaded to one replica may not exist on another replica.
+
+For horizontally scaled production, move public uploads and private ICC/concern attachments to approved shared storage such as S3-compatible object storage, Cloudinary, or a secure shared persistent volume. ICC private attachments must remain private and served only through authorized backend routes.
+
+### Capacity and load testing
+
+These reliability changes prepare the app for future k6 or Artillery tests against liveness, readiness, public GET endpoints, and authenticated flows. They do not prove support for any fixed user count such as 2000 simultaneous users. Capacity must be measured with non-destructive load testing against an environment designed for that test.
 
 ## Frontend Deployment
 

@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { Users, StudentProfiles, Skills, GovernmentSchemes, Skill } from '../models/index.js';
 import { StudentProfileUpdateSchema, SkillSchema, StudentRoleUpdateSchema, WorkshopRegistrationSchema } from '../schemas/validation.js';
-import { auth, AuthenticatedRequest } from '../middleware/auth.js';
+import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 import { enrichStudentAcademicDetails, getCurrentAcademicYear } from '../utils/academic.js';
 import { enrichSchemeDetails } from '../utils/scheme.js';
-import { uploadSkillCertificate } from '../middleware/upload.js';
+import { uploadProfile, uploadSkillCertificate } from '../middleware/upload.js';
 import { prisma } from '../config/prisma.js';
 import { getStudentProgress } from '../utils/progress.js';
 import { serializeWorkshop } from '../utils/workshops.js';
@@ -130,6 +130,102 @@ router.put('/me', auth, async (req: AuthenticatedRequest, res: Response, next) =
     next(error);
   }
 });
+
+// Update the authenticated student's dashboard/profile hero background.
+// Uses the existing secure profile upload pipeline:
+// MIME + extension checks, size limits, random filenames and file-signature validation.
+router.put(
+  '/me/dashboard-hero',
+  auth,
+  authorize(['STUDENT']),
+  uploadProfile.single('heroImage'),
+  async (req: AuthenticatedRequest, res: Response, next) => {
+    try {
+      const file = req.file as Express.Multer.File | undefined;
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please choose a JPG, PNG, or WEBP image.',
+        });
+      }
+
+      const profile = await StudentProfiles.findOne({
+        userId: req.user!._id,
+      });
+
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student profile not found.',
+        });
+      }
+
+      const dashboardHeroImage = `/uploads/profiles/${file.filename}`;
+
+      const updatedProfile = await StudentProfiles.findByIdAndUpdate(
+        profile._id!,
+        {
+          $set: {
+            dashboardHeroImage,
+          },
+        },
+      );
+
+      await logStudentActivity(
+        req.user!._id!,
+        'profile_update',
+        'Dashboard Hero Updated',
+        'Updated the personal dashboard/profile hero background image.',
+      );
+
+      return res.json({
+        success: true,
+        message: 'Dashboard background updated successfully.',
+        data: enrichStudentAcademicDetails(updatedProfile),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.delete(
+  '/me/dashboard-hero',
+  auth,
+  authorize(['STUDENT']),
+  async (req: AuthenticatedRequest, res: Response, next) => {
+    try {
+      const profile = await StudentProfiles.findOne({
+        userId: req.user!._id,
+      });
+
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student profile not found.',
+        });
+      }
+
+      const updatedProfile = await StudentProfiles.findByIdAndUpdate(
+        profile._id!,
+        {
+          $set: {
+            dashboardHeroImage: null,
+          },
+        },
+      );
+
+      return res.json({
+        success: true,
+        message: 'Dashboard background reset to the default image.',
+        data: enrichStudentAcademicDetails(updatedProfile),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // Student dashboard metrics
 router.get('/me/dashboard', auth, async (req: AuthenticatedRequest, res: Response, next) => {
@@ -685,6 +781,68 @@ router.patch('/me/skill-requests/:recipientId/read', auth, async (req: Authentic
   }
 });
 
+router.patch('/me/skill-requests/:recipientId/respond', auth, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const profile = await requireOwnStudentProfile(req.user!._id!, res);
+    if (!profile) return;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (message.length > 500) {
+      return res.status(400).json({ success: false, message: 'Response message cannot exceed 500 characters.' });
+    }
+    const row = await prisma.skillRequestRecipient.findFirst({
+      where: { id: req.params.recipientId, studentId: profile.id },
+      include: { skillRequest: true },
+    });
+    if (!row) return res.status(404).json({ success: false, message: 'Skill request not found.' });
+    if (row.skillRequest.status !== 'OPEN') {
+      return res.status(400).json({ success: false, message: 'Only open skill requests can be responded to.' });
+    }
+    const updated = await prisma.skillRequestRecipient.update({
+      where: { id: row.id },
+      data: {
+        responseStatus: 'INTERESTED',
+        responseMessage: message || null,
+        respondedAt: new Date(),
+        isRead: true,
+        readAt: row.readAt || new Date(),
+      },
+      include: { skillRequest: true },
+    });
+    return res.json({
+      success: true,
+      message: 'Skill request response saved.',
+      data: { ...updated, _id: updated.id, skillRequest: { ...updated.skillRequest, _id: updated.skillRequest.id } },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/me/skill-requests/:recipientId/withdraw-response', auth, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const profile = await requireOwnStudentProfile(req.user!._id!, res);
+    if (!profile) return;
+    const row = await prisma.skillRequestRecipient.findFirst({ where: { id: req.params.recipientId, studentId: profile.id } });
+    if (!row) return res.status(404).json({ success: false, message: 'Skill request not found.' });
+    const updated = await prisma.skillRequestRecipient.update({
+      where: { id: row.id },
+      data: {
+        responseStatus: 'WITHDRAWN',
+        responseMessage: null,
+        respondedAt: new Date(),
+      },
+      include: { skillRequest: true },
+    });
+    return res.json({
+      success: true,
+      message: 'Skill request response withdrawn.',
+      data: { ...updated, _id: updated.id, skillRequest: { ...updated.skillRequest, _id: updated.skillRequest.id } },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/me/notifications', auth, async (req: AuthenticatedRequest, res: Response, next) => {
   try {
     const page = Math.max(parseInt(req.query.page as string || '1', 10), 1);
@@ -733,8 +891,24 @@ router.get('/me/saved-schemes', auth, async (req: AuthenticatedRequest, res: Res
   try {
     const profile = await requireOwnStudentProfile(req.user!._id!, res);
     if (!profile) return;
-    const saved = await prisma.savedScheme.findMany({ where: { studentId: profile.id }, include: { scheme: true }, orderBy: { createdAt: 'desc' } });
-    return res.json({ success: true, data: saved.map(row => ({ ...row, _id: row.id, scheme: enrichSchemeDetails({ ...row.scheme, _id: row.scheme.id } as any) })) });
+    const page = Math.max(parseInt(req.query.page as string || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string || '10', 10), 1), 25);
+    const where = { studentId: profile.id };
+    const [total, saved] = await Promise.all([
+      prisma.savedScheme.count({ where }),
+      prisma.savedScheme.findMany({
+        where,
+        include: { scheme: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return res.json({
+      success: true,
+      data: saved.map(row => ({ ...row, _id: row.id, scheme: enrichSchemeDetails({ ...row.scheme, _id: row.scheme.id } as any) })),
+      meta: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) },
+    });
   } catch (error) {
     next(error);
   }

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { assignImageFallback, galleryFallbackImage } from '../../utils/imageFallback.js';
+import { assignImageFallback, galleryFallbackImage, withResolvedImage } from '../../utils/imageFallback.js';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference.js';
 
 interface LightboxImage {
@@ -113,7 +113,7 @@ export const GalleryImageLightbox: React.FC<GalleryImageLightboxProps> = ({
             </button>
             <motion.img
               key={activeImage._id}
-              src={activeImage.imageUrl}
+              src={withResolvedImage(activeImage.imageUrl, galleryFallbackImage)}
               alt={activeImage.altText || activeImage.caption || `${albumTitle} photo ${index + 1}`}
               onError={(event) => assignImageFallback(event, galleryFallbackImage)}
               referrerPolicy="no-referrer"

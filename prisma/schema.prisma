@@ -163,6 +163,64 @@ enum SupportContactCategory {
   OTHER
 }
 
+enum SafetyGuideCategory {
+  EMERGENCY_SELF_PROTECTION
+  DIGITAL_SAFETY
+  SAFE_TRAVEL
+  HARASSMENT_RESPONSE
+  EVIDENCE_PRESERVATION
+  ONLINE_ACCOUNT_PROTECTION
+  CYBERSTALKING_AWARENESS
+  PUBLIC_TRANSPORT_SAFETY
+}
+
+enum EmergencyResourceCategory {
+  EMERGENCY
+  WOMEN_SUPPORT
+  POLICE
+  CYBER_CRIME
+  CHILD_PROTECTION
+  COLLEGE_SUPPORT
+  MEDICAL_SUPPORT
+  COUNSELLING_SUPPORT
+}
+
+enum WellbeingMood {
+  GREAT
+  GOOD
+  OKAY
+  LOW
+  OVERWHELMED
+}
+
+enum SleepQuality {
+  POOR
+  AVERAGE
+  GOOD
+  VERY_GOOD
+}
+
+enum SupportRequestType {
+  COUNSELLOR_CALL
+  IN_PERSON_MEETING
+  SUPPORT_INFORMATION
+}
+
+enum CounsellingRequestStatus {
+  REQUESTED
+  ACKNOWLEDGED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AiChatLanguagePreference {
+  AUTO
+  ENGLISH
+  TAMIL
+  TANGLISH
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -190,6 +248,8 @@ model User {
   createdSupportContacts SafetySupportContact[] @relation("SupportContactCreatedBy")
   reviewedRoleUpdates    StudentRoleUpdate[]    @relation("RoleUpdateReviewedBy")
   notifications          Notification[]
+  createdSafetyGuides     SafetyGuide[]          @relation("SafetyGuideCreatedBy")
+  createdEmergencyResources EmergencyResource[]   @relation("EmergencyResourceCreatedBy")
 
   @@index([role])
   @@index([isActive])
@@ -201,6 +261,7 @@ model StudentProfile {
   registerNumber         String         @unique
   phone                  String?
   profileImage           String?
+  dashboardHeroImage     String?
   department             String
   course                 String
   bio                    String?
@@ -241,12 +302,163 @@ model StudentProfile {
   workshopParticipations WorkshopParticipation[]
   savedSchemes           SavedScheme[]
   roleUpdates            StudentRoleUpdate[]
+  wellbeingCheckIns      WellbeingCheckIn[]
+  wellbeingPrivacy       WellbeingPrivacySetting?
+  aiChatSessions         AiChatSession[]
+  counsellingRequests    CounsellingRequest[]
 
   @@index([department])
   @@index([course])
   @@index([academicStatus])
   @@index([isSingaPenMember])
   @@index([expectedCompletionDate])
+}
+
+model SafetyGuide {
+  id                  String              @id @default(cuid())
+  slug                String              @unique
+  title               String
+  category            SafetyGuideCategory
+  introduction        String
+  whatToKnow          String[]
+  warningSigns        String[]
+  immediateActions    String[]
+  stepByStepGuidance  String[]
+  dos                 String[]
+  donts               String[]
+  whenToSeekHelp      String[]
+  relatedContactCategories EmergencyResourceCategory[]
+  officialResourceIds String[]
+  isPublished         Boolean             @default(false)
+  lastVerifiedDate    DateTime?
+  createdById         String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  createdBy User @relation("SafetyGuideCreatedBy", fields: [createdById], references: [id])
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([lastVerifiedDate])
+}
+
+model EmergencyResource {
+  id               String                    @id @default(cuid())
+  name             String
+  purpose          String
+  phone            String?
+  alternatePhone   String?
+  email            String?
+  address          String?
+  website          String?
+  category         EmergencyResourceCategory
+  isEmergency      Boolean                   @default(false)
+  isOfficial       Boolean                   @default(false)
+  sourceName       String?
+  verifiedDate     DateTime?
+  isActive         Boolean                   @default(true)
+  createdById      String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  createdBy User? @relation("EmergencyResourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([isActive])
+  @@index([verifiedDate])
+}
+
+model AnonymousConcern {
+  id           String   @id @default(cuid())
+  referenceNumber String @unique
+  category     String
+  description  String
+  incidentDate DateTime?
+  location     String?
+  attachmentUrl String?
+  status       String   @default("SUBMITTED")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WellbeingCheckIn {
+  id           String          @id @default(cuid())
+  studentId    String
+  date         DateTime        @db.Date
+  mood         WellbeingMood
+  stressLevel  Int
+  energyLevel  Int
+  sleepQuality SleepQuality
+  feelings     String[]
+  reflection   String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+}
+
+model WellbeingPrivacySetting {
+  id                       String   @id @default(cuid())
+  studentId                String   @unique
+  personalizeAiWithCheckIns Boolean @default(false)
+  storeAiChatHistory       Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model AiChatSession {
+  id        String   @id @default(cuid())
+  studentId String
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student  StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messages AiChatMessage[]
+
+  @@index([studentId, updatedAt])
+}
+
+model AiChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  language  AiChatLanguagePreference @default(AUTO)
+  createdAt DateTime @default(now())
+
+  session AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model CounsellingRequest {
+  id                 String                    @id @default(cuid())
+  studentId          String
+  supportType        SupportRequestType
+  preferredDate      DateTime?
+  preferredTime      String?
+  reasonCategory     String
+  note               String?
+  status             CounsellingRequestStatus @default(REQUESTED)
+  assignedCounsellor String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model StudentRoleUpdate {
@@ -386,6 +598,9 @@ model SkillRequestRecipient {
   matchScore     Int       @default(0)
   isRead         Boolean   @default(false)
   readAt         DateTime?
+  responseStatus String    @default("PENDING")
+  responseMessage String?
+  respondedAt    DateTime?
   notifiedAt     DateTime  @default(now())
 
   skillRequest SkillRequest   @relation(fields: [skillRequestId], references: [id], onDelete: Cascade)
@@ -395,6 +610,7 @@ model SkillRequestRecipient {
   @@index([studentId])
   @@index([skillRequestId])
   @@index([isRead])
+  @@index([responseStatus])
 }
 
 model Notification {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/api.js';
 import { Calendar, Award, BookOpen, Search, Sparkles, AlertCircle, Eye, Download, User, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { assignImageFallback, galleryFallbackImage, withResolvedImage } from '../../utils/imageFallback.js';
 
 interface Achievement {
   _id: string;
@@ -239,9 +240,10 @@ export const Achievements: React.FC = () => {
                   {/* Photo representation */}
                   <div className="w-full sm:w-44 h-44 rounded-xl overflow-hidden bg-matte-beige shrink-0">
                     <img
-                      src={ach.image || '/uploads/placeholder_gallery.jpg'}
+                      src={withResolvedImage(ach.image, galleryFallbackImage)}
                       alt={ach.title}
                       referrerPolicy="no-referrer"
+                      onError={(event) => assignImageFallback(event, galleryFallbackImage)}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -272,7 +274,7 @@ export const Achievements: React.FC = () => {
                       <div className="flex space-x-2 justify-end">
                         {ach.certificate && (
                           <a
-                            href={ach.certificate}
+                            href={withResolvedImage(ach.certificate, '')}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center space-x-1 px-3 py-1.5 bg-matte-white border border-matte-beige hover:border-matte-rose/30 rounded-lg text-[10px] font-medium text-matte-maroon transition-colors cursor-pointer"
@@ -304,7 +306,7 @@ export const Achievements: React.FC = () => {
 
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-matte-maroon"></div>
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-matte-maroon/20 border-t-matte-maroon"></div>
             </div>
           ) : error ? (
             <div className="bg-rose-50 border border-matte-rose/30 text-matte-maroon p-6 rounded-2xl flex items-center space-x-3 max-w-lg mx-auto">
@@ -356,7 +358,7 @@ export const Achievements: React.FC = () => {
                     <div className="flex space-x-2 justify-end pt-1">
                       {ach.certificate && (
                         <a
-                          href={ach.certificate}
+                          href={withResolvedImage(ach.certificate, '')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-matte-cream hover:bg-matte-blush/20 border border-matte-beige rounded-lg text-[9px] font-medium text-matte-maroon transition-colors cursor-pointer"
@@ -456,9 +458,10 @@ export const Achievements: React.FC = () => {
                         <span className="text-[10px] text-matte-charcoal/50 block font-bold uppercase tracking-wider">Event Photo</span>
                         <div className="aspect-video rounded-xl overflow-hidden bg-matte-cream border border-matte-beige">
                           <img
-                            src={activeAchievement.image}
+                            src={withResolvedImage(activeAchievement.image, galleryFallbackImage)}
                             alt="Achievement Event"
                             referrerPolicy="no-referrer"
+                            onError={(event) => assignImageFallback(event, galleryFallbackImage)}
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -476,7 +479,7 @@ export const Achievements: React.FC = () => {
                               </span>
                             </div>
                             <a
-                              href={activeAchievement.certificate}
+                              href={withResolvedImage(activeAchievement.certificate, '')}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-2 bg-white rounded-lg border border-matte-beige hover:border-matte-rose/30 transition-colors"
@@ -487,7 +490,7 @@ export const Achievements: React.FC = () => {
                         </div>
 
                         <a
-                          href={activeAchievement.certificate}
+                          href={withResolvedImage(activeAchievement.certificate, '')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-full py-2.5 bg-matte-cream hover:bg-matte-blush/20 border border-matte-beige rounded-xl text-xs font-medium text-matte-maroon text-center transition-colors cursor-pointer"

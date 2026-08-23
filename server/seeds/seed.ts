@@ -547,10 +547,10 @@ export async function runSeed() {
       fullDescription: 'A custom national funding program designed specifically to convert young women student projects into real micro-ventures. This provides small business loans with zero collateral requirement and highly subsidized interest rates.',
       provider: 'National Cooperative Development Corporation',
       category: 'Entrepreneurship' as const,
-      eligibility: 'Women college students or recent alumni (within 3 years of passing) aged 18 to 28. Business plan must be verified by college incubation desk.',
+      eligibility: 'Women college students or recent alumni (within 3 years of passing) aged 18 to 28. Business plan must be verified through the Women Empowerment Cell support process.',
       benefits: 'Low interest rate (4% per annum). Collateral-free loan up to Rs 5,000,000. 12 months repayment holiday.',
       requiredDocuments: ['Business Pitch Deck', 'College Bonafide Certificate', 'Project Report Co-Signed by Faculty', 'PAN Card & Aadhaar'],
-      applicationProcess: "Submit your formal business idea and proposal via the Women's Empowerment Cell and incubation desk to be forwarded to partner banks.",
+      applicationProcess: "Submit your formal business idea and proposal via the Women's Empowerment Cell to be forwarded to partner banks.",
       officialUrl: 'https://www.ncdc.in',
       startDate: `${currentYear}-04-01`,
       endDate: `${currentYear + 1}-03-31`,
@@ -582,7 +582,7 @@ export async function runSeed() {
       eligibility: 'Any individual female above 18 years of age. Minimum standard 8th pass for manufacturing projects costing above Rs 10 Lakhs.',
       benefits: 'Up to 35% subsidy on project costs. Loan up to Rs 50 Lakhs for manufacturing, and Rs 20 Lakhs for service business.',
       requiredDocuments: ['Detailed Project Report (DPR)', 'Aadhaar Card', 'Educational Certificate', 'Community Certificate'],
-      applicationProcess: 'Apply online via the KVIC PMEGP portal, listing our college incubation desk as reference center.',
+      applicationProcess: 'Apply online via the KVIC PMEGP portal, listing the college Women Empowerment Cell as the reference support center.',
       officialUrl: 'https://www.kviconline.gov.in/pmegpeportal',
       startDate: `${currentYear}-04-01`,
       endDate: `${currentYear + 1}-03-31`,
@@ -654,7 +654,7 @@ export async function runSeed() {
   await SiteContents.create({
     sectionKey: 'home',
     title: 'Welcome to Singa Pen Portal',
-    content: 'Empowering young college women through core leadership, modern tech skill development, financial scheme awareness, and entrepreneurial incubation.',
+    content: 'Empowering young college women through core leadership, modern tech skill development, financial scheme awareness, and entrepreneurship guidance.',
     metadata: {
       heroTitle: 'Rise, Lead, and Inspire',
       heroSubtitle: "Welcome to the Women's Empowerment Cell of Sankara College of Science and Commerce and Singa Pen Club Portal. A dedicated platform bridging leadership, skill search, and government support for every student.",
@@ -675,7 +675,7 @@ export async function runSeed() {
       objectives: [
         'Organize hands-on skill workshops (coding, tailoring, arts, wellness).',
         'Directly facilitate student applications for state and central women schemes.',
-        'Act as an incubator for female-led business proposals on campus.',
+        'Support female-led business proposals through awareness, mentoring, and campus collaboration.',
         'Maintain a searchable skills database for college collaborations.'
       ]
     },

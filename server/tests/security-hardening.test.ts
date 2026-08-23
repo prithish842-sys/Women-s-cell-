@@ -51,6 +51,18 @@ describe('security hardening contracts', () => {
     expect(adminDetail).toContain("api.get(`/icc/complaints/${complaintId}/attachment`, { responseType: 'blob' })");
   });
 
+  it('provides a public sanitized skills directory without exposing private student fields', () => {
+    const publicRoutes = read('server/routes/public.ts');
+
+    expect(publicRoutes).toContain("router.get('/skills', async (req, res, next) => {");
+    expect(publicRoutes).toContain('name: profile.user.name');
+    expect(publicRoutes).toContain('department: profile.department');
+    expect(publicRoutes).toContain('profileImage: profile.profileImage');
+    expect(publicRoutes).not.toContain('registerNumber');
+    expect(publicRoutes).not.toContain('phone:');
+    expect(publicRoutes).not.toContain('email: profile.user.email');
+  });
+
   it('normalizes failed login wording to prevent account enumeration', () => {
     const authRoutes = read('server/routes/auth.ts');
     expect(authRoutes).toContain("const INVALID_LOGIN_MESSAGE = 'Invalid identifier or password.'");

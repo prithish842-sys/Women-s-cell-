@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api.js';
-import { Bell, CheckCheck, RefreshCw } from 'lucide-react';
+import { Bell, CheckCheck, MailOpen, RefreshCw, Send, Users } from 'lucide-react';
 import { NotificationListSkeleton } from '../../components/common/Skeleton.js';
+import { AdminNotice, AdminPageHeader, AdminStatCard, adminButton, adminCard, adminGhostButton, formatNumber } from '../../components/admin/AdminUI.js';
 
 export const AdminNotifications: React.FC = () => {
   const navigate = useNavigate();
@@ -43,20 +44,26 @@ export const AdminNotifications: React.FC = () => {
 
   return (
     <div className="space-y-6 fade-in-up">
-      <section className="border-b border-gray-200 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-maroon-700">Admin Notifications</h1>
-          <p className="text-xs text-gray-500">Workshop registrations and system alerts for administrators.</p>
-        </div>
+      <AdminPageHeader
+        title="Notifications"
+        description="Communicate with your community effectively through existing portal notifications."
+        action={
         <div className="flex gap-2">
-          <button onClick={readAll} className="inline-flex items-center gap-2 px-3 py-2 bg-maroon-700 text-white rounded-md text-xs font-bold"><CheckCheck className="w-4 h-4" /> Mark All Read</button>
-          <button onClick={load} className="inline-flex items-center gap-2 px-3 py-2 border bg-white rounded-md text-xs font-bold"><RefreshCw className="w-4 h-4" /> Refresh</button>
+          <button onClick={readAll} className={adminButton}><CheckCheck className="w-4 h-4" /> Mark All Read</button>
+          <button onClick={load} className={adminGhostButton}><RefreshCw className="w-4 h-4" /> Refresh</button>
         </div>
+        }
+      />
+      <section className="grid gap-4 md:grid-cols-4">
+        <AdminStatCard label="Total Notifications" value={formatNumber(notifications.length)} icon={Bell} tone="purple" footer={`Unread: ${formatNumber(notifications.filter(n => !n.isRead).length)}`} />
+        <AdminStatCard label="Read" value={formatNumber(notifications.filter(n => n.isRead).length)} icon={MailOpen} tone="green" footer="Marked as read" />
+        <AdminStatCard label="Linked Alerts" value={formatNumber(notifications.filter(n => n.link).length)} icon={Send} tone="blue" footer="Openable workflow links" />
+        <AdminStatCard label="Audience" value="Admin" icon={Users} tone="teal" footer="Current notification stream" />
       </section>
-      {loading ? <NotificationListSkeleton /> : error ? <p className="text-red-600">{error}</p> : notifications.length === 0 ? (
-        <div className="text-center py-12 bg-white border rounded-xl text-gray-500 text-sm">No admin notifications yet.</div>
+      {loading ? <NotificationListSkeleton /> : error ? <AdminNotice type="error" onRetry={load}>{error}</AdminNotice> : notifications.length === 0 ? (
+        <div className={`${adminCard} text-center py-12 text-gray-500 text-sm`}>No admin notifications yet.</div>
       ) : (
-        <div className="bg-white border rounded-xl divide-y shadow-sm">
+        <div className={`${adminCard} divide-y divide-[#edf2fb] overflow-hidden`}>
           {notifications.map(notification => (
             <div key={notification._id} className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${notification.isRead ? '' : 'bg-rose-50/30'}`}>
               <div className="flex items-start gap-3">

@@ -9,6 +9,98 @@ import { serializeWorkshop } from '../utils/workshops.js';
 
 const router = Router();
 
+
+const REQUESTED_PUBLIC_MEMBER_IDS = {
+  tharani: 'directory-tharani-p',
+  sathyPriya: 'directory-sathypriya-s',
+} as const;
+
+const normalizeDirectoryName = (value = '') =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const isAnamikaDirectoryMember = (name = '') => {
+  const normalized = normalizeDirectoryName(name);
+  return normalized === 'sanamika' || normalized === 'anamikaa' || normalized === 'anamika';
+};
+
+const isTharaniDirectoryMember = (name = '') =>
+  normalizeDirectoryName(name).includes('tharani');
+
+const isSathyPriyaDirectoryMember = (name = '') => {
+  const normalized = normalizeDirectoryName(name);
+  return normalized.includes('sathypriya') || normalized.includes('sathyapriya');
+};
+
+const requestedDirectoryMembers = {
+  tharani: {
+    _id: REQUESTED_PUBLIC_MEMBER_IDS.tharani,
+    name: 'Tharani.P',
+    memberType: 'STUDENT',
+    department: 'Dept. of Commerce (CA)',
+    course: 'Commerce (CA)',
+    joiningAcademicYear: '',
+    currentStudyYear: null,
+    academicStatus: 'ACTIVE',
+    clubRole: 'Vice Chairman',
+    designation: '',
+    clubJoinedAt: null,
+    achievements: [],
+    bio: 'Tharani.P serves the Singa Pen Club as Vice Chairman in the Dept. of Commerce (CA).',
+    profileImage: '',
+    skills: [],
+    entrepreneurship: { interestedInEntrepreneurship: false },
+  },
+  sathyPriya: {
+    _id: REQUESTED_PUBLIC_MEMBER_IDS.sathyPriya,
+    name: 'SathyPriya.S',
+    memberType: 'FACULTY',
+    department: 'Bachelor of Computer Science',
+    course: 'Bachelor of Computer Science',
+    joiningAcademicYear: '',
+    currentStudyYear: null,
+    academicStatus: 'FACULTY',
+    clubRole: 'Faculty',
+    designation: 'Faculty',
+    clubJoinedAt: null,
+    achievements: [],
+    bio: "SathyPriya.S serves the Women's Empowerment Cell as Faculty in Bachelor of Computer Science.",
+    profileImage: '',
+    skills: [],
+    entrepreneurship: { interestedInEntrepreneurship: false },
+  },
+} as const;
+
+const applyRequestedDirectoryMembers = (members: any[]) => {
+  const source = Array.isArray(members) ? members : [];
+  const anamikaIndex = source.findIndex(member => isAnamikaDirectoryMember(member?.name || ''));
+
+  const cleaned = source.filter(member => {
+    const name = member?.name || '';
+    return !isAnamikaDirectoryMember(name)
+      && !isTharaniDirectoryMember(name)
+      && !isSathyPriyaDirectoryMember(name);
+  });
+
+  const tharaniInsertIndex = anamikaIndex >= 0
+    ? Math.min(anamikaIndex, cleaned.length)
+    : cleaned.length;
+
+  cleaned.splice(tharaniInsertIndex, 0, { ...requestedDirectoryMembers.tharani });
+  cleaned.push({ ...requestedDirectoryMembers.sathyPriya });
+
+  return cleaned;
+};
+
+const getRequestedDirectoryMemberById = (id: string) => {
+  if (id === REQUESTED_PUBLIC_MEMBER_IDS.tharani) {
+    return { ...requestedDirectoryMembers.tharani };
+  }
+  if (id === REQUESTED_PUBLIC_MEMBER_IDS.sathyPriya) {
+    return { ...requestedDirectoryMembers.sathyPriya };
+  }
+  return null;
+};
+
 // Get Public Site Content
 router.get('/site-content', async (req, res, next) => {
   try {
@@ -110,41 +202,44 @@ router.get('/members', async (req, res, next) => {
     const academicStatus = req.query.academicStatus as string;
     const alumniOnly = req.query.alumniOnly === 'true';
 
-    // Only actual Singa Pen members are visible publicly
-    let members = await StudentProfiles.find({ isSingaPenMember: true });
-
-    // Enriched details
+    // Existing student Singa Pen records remain the primary live source.
+    const members = await StudentProfiles.find({ isSingaPenMember: true });
     let enriched = members.map(enrichStudentAcademicDetails).filter(Boolean) as any[];
 
-    // Fetch user details for names
     const users = await Users.find({ role: 'STUDENT' });
-    const userMap = new Map(users.map(u => [u._id, u.name]));
+    const userMap = new Map(users.map(user => [user._id, user.name]));
 
-    enriched = enriched.map(m => {
-      const name = userMap.get(m.userId) || 'Anonymous Member';
-      const womensCellRecord = womensCellMemberByName.get(normalizeWomensCellName(name));
-      return {
-        ...m,
-        name,
-        memberType: 'STUDENT',
-        ...(womensCellRecord ? {
-          department: womensCellRecord.department,
-          course: womensCellRecord.course || m.course,
-          currentStudyYear: womensCellRecord.displayStudyYear,
-          clubRole: womensCellRecord.role || m.clubRole,
-          profileImage: womensCellRecord.profileImage,
-        } : {}),
-      };
-    }).filter(m => womensCellMemberByName.has(normalizeWomensCellName(m.name)));
+    enriched = enriched
+      .map(member => {
+        const name = userMap.get(member.userId) || 'Anonymous Member';
+        const womensCellRecord = womensCellMemberByName.get(normalizeWomensCellName(name));
 
+        return {
+          ...member,
+          name,
+          memberType: 'STUDENT',
+          ...(womensCellRecord ? {
+            department: womensCellRecord.department,
+            course: womensCellRecord.course || member.course,
+            currentStudyYear: womensCellRecord.displayStudyYear,
+            clubRole: womensCellRecord.role || member.clubRole,
+            profileImage: womensCellRecord.profileImage,
+          } : {}),
+        };
+      })
+      .filter(member => womensCellMemberByName.has(normalizeWomensCellName(member.name)));
+
+    // Existing faculty records remain unchanged.
     const facultyProfiles = await FacultyProfiles.find();
     const facultyUsers = await Users.find({ role: 'FACULTY' });
-    const facultyUserMap = new Map(facultyUsers.map(u => [u._id, u.name]));
+    const facultyUserMap = new Map(facultyUsers.map(user => [user._id, user.name]));
+
     const womensCellFaculty = facultyProfiles
       .map(profile => {
         const name = facultyUserMap.get(profile.userId) || '';
         const womensCellRecord = womensCellMemberByName.get(normalizeWomensCellName(name));
         if (!womensCellRecord || womensCellRecord.type !== 'FACULTY') return null;
+
         return {
           _id: profile._id,
           userId: profile.userId,
@@ -164,61 +259,142 @@ router.get('/members', async (req, res, next) => {
       })
       .filter(Boolean) as any[];
 
-    enriched = [...enriched, ...womensCellFaculty];
+    // Requested committee correction:
+    // - remove Anamika from the public committee
+    // - put Tharani.P in the same position as Vice Chairman
+    // - add SathyPriya.S as Faculty at the end
+    enriched = applyRequestedDirectoryMembers([...enriched, ...womensCellFaculty]);
 
-    // Filter by name (search)
     if (search) {
-      enriched = enriched.filter(m => m.name.toLowerCase().includes(search));
+      enriched = enriched.filter(member => String(member.name || '').toLowerCase().includes(search));
     }
 
-    // Filter by department
     if (department) {
-      enriched = enriched.filter(m => m.department.toLowerCase() === department.toLowerCase());
+      enriched = enriched.filter(member => String(member.department || '').toLowerCase() === department.toLowerCase());
     }
 
-    // Filter by course
     if (course) {
-      enriched = enriched.filter(m => m.course.toLowerCase() === course.toLowerCase());
+      enriched = enriched.filter(member => String(member.course || '').toLowerCase() === course.toLowerCase());
     }
 
-    // Filter by clubRole
     if (clubRole) {
-      enriched = enriched.filter(m => m.clubRole === clubRole);
+      enriched = enriched.filter(member => String(member.clubRole || '') === clubRole);
     }
 
-    // Filter by academicStatus
     if (academicStatus) {
-      enriched = enriched.filter(m => m.academicStatus === academicStatus);
+      enriched = enriched.filter(member => String(member.academicStatus || '') === academicStatus);
     }
 
-    // Filter by Alumni/Current
     if (alumniOnly) {
-      enriched = enriched.filter(m => m.academicStatus === 'PASSED_OUT');
+      enriched = enriched.filter(member => member.academicStatus === 'PASSED_OUT');
     }
 
-    // Sanitize member details for privacy reasons before returning
-    const sanitizedMembers = enriched.map(m => {
-      return {
-        _id: m._id,
-        name: m.name,
-        department: m.department,
-        course: m.course,
-        joiningAcademicYear: m.joiningAcademicYear,
-        currentStudyYear: m.currentStudyYear,
-        academicStatus: m.academicStatus,
-        clubRole: m.clubRole,
-        memberType: m.memberType || 'STUDENT',
-        designation: m.designation || '',
-        clubJoinedAt: m.clubJoinedAt,
-        achievements: m.achievements || [],
-        bio: m.bio || '',
-        profileImage: m.profileImage || ''
-      };
-    });
+    const sanitizedMembers = enriched.map(member => ({
+      _id: member._id,
+      name: member.name,
+      department: member.department,
+      course: member.course,
+      joiningAcademicYear: member.joiningAcademicYear,
+      currentStudyYear: member.currentStudyYear,
+      academicStatus: member.academicStatus,
+      clubRole: member.clubRole,
+      memberType: member.memberType || 'STUDENT',
+      designation: member.designation || '',
+      clubJoinedAt: member.clubJoinedAt,
+      achievements: member.achievements || [],
+      bio: member.bio || '',
+      profileImage: member.profileImage || '',
+    }));
 
     return res.json({
       success: true,
-      data: sanitizedMembers
+      data: sanitizedMembers,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/skills', async (req, res, next) => {
+  try {
+    const keyword = (req.query.keyword as string || req.query.search as string || '').trim();
+    const department = req.query.department as string;
+    const category = req.query.category as string;
+    const skillLevel = req.query.skillLevel as string;
+    const page = Math.max(parseInt(req.query.page as string || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string || '12', 10), 1), 40);
+
+    const where: any = {
+      user: { is: { role: 'STUDENT', isActive: true } },
+    };
+    if (department && department !== 'ALL') where.department = { equals: department, mode: 'insensitive' };
+    if (keyword) {
+      where.OR = [
+        { department: { contains: keyword, mode: 'insensitive' } },
+        { course: { contains: keyword, mode: 'insensitive' } },
+        { bio: { contains: keyword, mode: 'insensitive' } },
+        { user: { is: { name: { contains: keyword, mode: 'insensitive' } } } },
+        { skills: { some: { skillName: { contains: keyword, mode: 'insensitive' } } } },
+        { skills: { some: { category: { contains: keyword, mode: 'insensitive' } } } },
+        { skills: { some: { description: { contains: keyword, mode: 'insensitive' } } } },
+        { skills: { some: { tools: { has: keyword } } } },
+      ];
+    }
+    if (category && category !== 'ALL') {
+      where.skills = { some: { category: { equals: category, mode: 'insensitive' } } };
+    }
+    if (skillLevel && skillLevel !== 'ALL') {
+      where.skills = {
+        some: {
+          ...(where.skills?.some || {}),
+          skillLevel,
+        },
+      };
+    }
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true } },
+          skills: { orderBy: [{ isPrimary: 'desc' }, { updatedAt: 'desc' }] },
+        },
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    const results = profiles.map((profile) => ({
+      _id: profile.id,
+      name: profile.user.name,
+      department: profile.department,
+      course: profile.course,
+      profileImage: profile.profileImage || '',
+      bio: profile.bio || '',
+      academicStatus: profile.academicStatus,
+      currentStudyYear: profile.currentStudyYear,
+      entrepreneurship: {
+        interestedInEntrepreneurship: profile.interestedInEntrepreneurship,
+        preferredIndustry: profile.preferredIndustry || '',
+        futurePlan: profile.futurePlan || '',
+      },
+      skills: profile.skills.map(skill => ({
+        _id: skill.id,
+        skillName: skill.skillName,
+        category: skill.category,
+        skillLevel: skill.skillLevel,
+        description: skill.description || '',
+        tools: skill.tools || [],
+        isPrimary: skill.isPrimary,
+      })),
+    }));
+
+    return res.json({
+      success: true,
+      data: results,
+      meta: { total, page, limit },
     });
   } catch (error) {
     next(error);
@@ -348,13 +524,24 @@ router.get('/skills/search', auth, authorize(['FACULTY', 'ADMIN']), async (req: 
 // Get Individual Public Member Profile
 router.get('/members/:id', async (req, res, next) => {
   try {
+    // Requested committee-only records do not need fabricated login credentials.
+    // They are still served by the backend so list/detail routing stays consistent.
+    const requestedMember = getRequestedDirectoryMemberById(req.params.id);
+    if (requestedMember) {
+      return res.json({
+        success: true,
+        data: requestedMember,
+      });
+    }
+
     const profile = await StudentProfiles.findById(req.params.id);
+
     if (!profile || !profile.isSingaPenMember) {
       const facultyProfile = await FacultyProfiles.findById(req.params.id);
       if (!facultyProfile) {
         return res.status(404).json({
           success: false,
-          message: 'Singa Pen member not found.'
+          message: 'Singa Pen member not found.',
         });
       }
 
@@ -366,7 +553,7 @@ router.get('/members/:id', async (req, res, next) => {
       if (!facultyUser || !womensCellRecord || womensCellRecord.type !== 'FACULTY') {
         return res.status(404).json({
           success: false,
-          message: 'Singa Pen member not found.'
+          message: 'Singa Pen member not found.',
         });
       }
 
@@ -389,7 +576,7 @@ router.get('/members/:id', async (req, res, next) => {
           profileImage: womensCellRecord.profileImage,
           skills: [],
           entrepreneurship: { interestedInEntrepreneurship: false },
-        }
+        },
       });
     }
 
@@ -397,54 +584,56 @@ router.get('/members/:id', async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Member account details not found.'
+        message: 'Member account details not found.',
       });
     }
 
     const enriched = enrichStudentAcademicDetails(profile) as any;
     const womensCellRecord = womensCellMemberByName.get(normalizeWomensCellName(user.name));
+
     if (!womensCellRecord || womensCellRecord.type !== 'STUDENT') {
       return res.status(404).json({
         success: false,
-        message: 'Singa Pen member not found.'
+        message: 'Singa Pen member not found.',
       });
     }
-    
-    // Fetch student's skills
+
     const studentSkills = await Skills.find({ studentId: profile.userId });
 
     const sanitizedMember = {
       _id: enriched._id,
       name: user.name,
       memberType: 'STUDENT',
-      department: womensCellRecord?.department || enriched.department,
-      course: womensCellRecord?.course || enriched.course,
+      department: womensCellRecord.department || enriched.department,
+      course: womensCellRecord.course || enriched.course,
       joiningAcademicYear: enriched.joiningAcademicYear,
-      currentStudyYear: womensCellRecord ? womensCellRecord.displayStudyYear : enriched.currentStudyYear,
+      currentStudyYear: womensCellRecord.displayStudyYear ?? enriched.currentStudyYear,
       academicStatus: enriched.academicStatus,
-      clubRole: womensCellRecord?.role || enriched.clubRole,
+      clubRole: womensCellRecord.role || enriched.clubRole,
       clubJoinedAt: enriched.clubJoinedAt,
       achievements: enriched.achievements || [],
       bio: enriched.bio || '',
-      profileImage: womensCellRecord?.profileImage || enriched.profileImage || '',
-      skills: studentSkills.map(s => ({
-        skillName: s.skillName,
-        category: s.category,
-        skillLevel: s.skillLevel,
-        isPrimary: s.isPrimary,
-        tools: s.tools || [],
-        description: s.description || ''
+      profileImage: womensCellRecord.profileImage || enriched.profileImage || '',
+      skills: studentSkills.map(skill => ({
+        skillName: skill.skillName,
+        category: skill.category,
+        skillLevel: skill.skillLevel,
+        isPrimary: skill.isPrimary,
+        tools: skill.tools || [],
+        description: skill.description || '',
       })),
-      entrepreneurship: enriched.entrepreneurship?.interestedInEntrepreneurship ? {
-        interestedInEntrepreneurship: true,
-        businessIdea: enriched.entrepreneurship.businessIdea,
-        preferredIndustry: enriched.entrepreneurship.preferredIndustry
-      } : { interestedInEntrepreneurship: false }
+      entrepreneurship: enriched.entrepreneurship?.interestedInEntrepreneurship
+        ? {
+            interestedInEntrepreneurship: true,
+            businessIdea: enriched.entrepreneurship.businessIdea,
+            preferredIndustry: enriched.entrepreneurship.preferredIndustry,
+          }
+        : { interestedInEntrepreneurship: false },
     };
 
     return res.json({
       success: true,
-      data: sanitizedMember
+      data: sanitizedMember,
     });
   } catch (error) {
     next(error);

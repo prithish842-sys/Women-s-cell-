@@ -18,6 +18,7 @@ export interface StudentProfile {
   registerNumber: string;
   phone: string;
   profileImage?: string;
+  dashboardHeroImage?: string;
   department: string;
   course: string;
   bio?: string;

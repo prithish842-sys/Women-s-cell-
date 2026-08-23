@@ -19,7 +19,9 @@ const uploadFolders = [
   'achievements/images',
   'achievements/certificates',
   'private/icc',
+  'private/anonymous-concerns',
   'thumbnails',
+  'private/reports',
 ];
 
 for (const folder of uploadFolders) {
@@ -167,9 +169,21 @@ export const uploadAchievementFiles = secureUpload(multer({
   limits: { fileSize: Math.max(achievementLimitMb, certLimitMb) * 1024 * 1024 },
 }));
 
+
+export const uploadReportDocument = secureUpload(multer({
+  storage: makeStorage(() => 'private/reports'),
+  fileFilter: makeFilter(pdfMimeTypes),
+  limits: { fileSize: certLimitMb * 1024 * 1024 },
+}));
+
 export const uploadCertificate = uploadAchievementFiles;
 export const uploadIccAttachment = secureUpload(multer({
   storage: makeStorage(() => 'private/icc'),
+  fileFilter: makeFilter(new Set([...imageMimeTypes, ...pdfMimeTypes])),
+  limits: { fileSize: certLimitMb * 1024 * 1024 },
+}));
+export const uploadAnonymousConcernAttachment = secureUpload(multer({
+  storage: makeStorage(() => 'private/anonymous-concerns'),
   fileFilter: makeFilter(new Set([...imageMimeTypes, ...pdfMimeTypes])),
   limits: { fileSize: certLimitMb * 1024 * 1024 },
 }));

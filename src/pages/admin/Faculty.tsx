@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api from '../../utils/api.js';
 import { 
   Users, Plus, Trash2, ShieldAlert, CheckCircle, 
-  HelpCircle, RefreshCw, Key, Landmark 
+  Key, Landmark, Building2
 } from 'lucide-react';
+import { AdminNotice, AdminPageHeader, AdminSkeletonBlock, AdminStatCard, adminButton, adminCard, formatNumber } from '../../components/admin/AdminUI.js';
 
 export const AdminFaculty: React.FC = () => {
   const [faculty, setFaculty] = useState<any[]>([]);
@@ -109,36 +110,32 @@ export const AdminFaculty: React.FC = () => {
 
   return (
     <div className="space-y-6 fade-in-up">
-      {/* Header */}
-      <div className="border-b border-gray-200 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-maroon-700">Faculty Advisor Registries</h1>
-          <p className="text-xs text-gray-500">Manage department heads and advisory staff allowed to query student talent.</p>
-        </div>
-        {!showForm && (
+      <AdminPageHeader
+        title="Faculty"
+        description="Manage faculty members, departments, roles, and access across the platform."
+        action={!showForm ? (
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-maroon-700 hover:bg-maroon-800 text-white rounded text-xs font-bold inline-flex items-center space-x-1 shadow"
+            className={adminButton}
           >
             <Plus className="w-4 h-4" />
-            <span>Provision Faculty Account</span>
+            <span>Add Faculty</span>
           </button>
-        )}
-      </div>
+        ) : null}
+      />
+      <section className="grid gap-4 md:grid-cols-3">
+        <AdminStatCard label="Total Faculty" value={formatNumber(faculty.length)} icon={Users} tone="purple" footer={`Active: ${formatNumber(faculty.filter(f => f.isActive !== false).length)}`} />
+        <AdminStatCard label="Departments" value={formatNumber(new Set(faculty.map(f => f.department).filter(Boolean)).size)} icon={Building2} tone="blue" footer="Unique departments" />
+        <AdminStatCard label="Inactive Accounts" value={formatNumber(faculty.filter(f => f.isActive === false).length)} icon={Landmark} tone="orange" footer="Based on user status" />
+      </section>
 
       {/* Notifications */}
       {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-start space-x-2">
-          <ShieldAlert className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
-          <span>{errorMsg}</span>
-        </div>
+          <AdminNotice type="error">{errorMsg}</AdminNotice>
       )}
 
       {successMsg && (
-        <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl flex items-start space-x-2">
-          <CheckCircle className="w-5 h-5 shrink-0 text-green-500 mt-0.5" />
-          <span>{successMsg}</span>
-        </div>
+          <AdminNotice type="success">{successMsg}</AdminNotice>
       )}
 
       {/* Creation Form */}
@@ -242,17 +239,18 @@ export const AdminFaculty: React.FC = () => {
 
       {/* Faculty List Table */}
       {loading ? (
-        <div className="bg-white rounded-xl border p-8 text-center text-xs text-gray-500 animate-pulse">
-          Querying credentials databases...
-        </div>
+        <AdminSkeletonBlock rows={7} />
       ) : faculty.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border text-gray-500 text-xs">
           No faculty accounts registered yet.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-150 shadow-sm overflow-hidden">
+        <div className={`${adminCard} overflow-hidden`}>
+          <div className="px-4 py-4">
+            <h2 className="text-lg font-black text-[#071247]">{formatNumber(faculty.length)} faculty members found</h2>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full min-w-[760px] text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   <th className="px-6 py-3">Staff ID</th>
@@ -274,7 +272,7 @@ export const AdminFaculty: React.FC = () => {
                         <button
                           onClick={() => handleDeleteFaculty(f._id, f.name)}
                           title="Purge Accounts"
-                          className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded transition-all inline-flex items-center"
+                          className="p-1.5 hover:bg-red-50 text-[#415176] hover:text-red-600 rounded transition-all inline-flex items-center"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
