@@ -4,7 +4,7 @@ import api from '../../utils/api.js';
 import { Calendar, MapPin, Sparkles, ChevronLeft, User, AlertCircle, Maximize2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GalleryImageLightbox } from '../../components/gallery/GalleryImageLightbox.js';
-import { assignImageFallback, galleryFallbackImage } from '../../utils/imageFallback.js';
+import { assignImageFallback, galleryFallbackImage, withResolvedImage } from '../../utils/imageFallback.js';
 
 interface GalleryImage {
   _id: string;
@@ -63,7 +63,7 @@ export const GalleryAlbumDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-32 bg-matte-white min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-matte-maroon"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-matte-maroon/20 border-t-matte-maroon"></div>
       </div>
     );
   }
@@ -178,7 +178,7 @@ export const GalleryAlbumDetail: React.FC = () => {
                   }}
                 >
                   <img
-                    src={image.imageUrl}
+                    src={withResolvedImage(image.imageUrl, galleryFallbackImage)}
                     alt={image.altText || image.caption || `${album.title} photo ${index + 1}`}
                     referrerPolicy="no-referrer"
                     loading={index === 0 ? 'eager' : 'lazy'}

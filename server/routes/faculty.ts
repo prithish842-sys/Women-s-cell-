@@ -3,8 +3,11 @@ import { StudentProfiles, Users, Skills, Skill, StudentProfile } from '../models
 import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 import { enrichStudentAcademicDetails } from '../utils/academic.js';
 import { prisma } from '../config/prisma.js';
-import { RoleUpdateStatusSchema } from '../schemas/validation.js';
+import { RoleUpdateStatusSchema, WorkshopSchema } from '../schemas/validation.js';
 import { findRoleUpdateForReview, notifyStudent, serializeRoleUpdate } from '../utils/studentRoleUpdates.js';
+import { classifyProgramLevel } from '../utils/programLevel.js';
+import { uploadGallery as uploadWorkshopPoster } from '../middleware/upload.js';
+import { serializeWorkshop } from '../utils/workshops.js';
 
 const router = Router();
 
@@ -18,6 +21,31 @@ router.get('/dashboard', auth, authorize(['FACULTY', 'ADMIN']), async (req: Auth
     const passedOutCount = enriched.filter(s => s.academicStatus === 'PASSED_OUT').length;
     const singaPenCount = enriched.filter(s => s.isSingaPenMember).length;
     const collabAvailableCount = enriched.filter(s => s.availability?.availableForProjects).length;
+
+    const departmentBreakdown = Object.values(
+      enriched.reduce<Record<string, { department: string; total: number; ug: number; pg: number }>>((acc, student) => {
+        const rawDepartment = String(student.department || 'Unspecified').trim() || 'Unspecified';
+        const key = rawDepartment.toLowerCase();
+        const current = acc[key] || { department: rawDepartment, total: 0, ug: 0, pg: 0 };
+        const programLevel = classifyProgramLevel(student.course, student.courseDurationYears);
+
+        current.total += 1;
+        if (programLevel === 'PG') current.pg += 1;
+        else current.ug += 1;
+
+        acc[key] = current;
+        return acc;
+      }, {}),
+    ).sort((a, b) => b.total - a.total || a.department.localeCompare(b.department));
+
+    const programLevelSummary = departmentBreakdown.reduce(
+      (summary, item) => {
+        summary.UG += item.ug;
+        summary.PG += item.pg;
+        return summary;
+      },
+      { UG: 0, PG: 0 },
+    );
 
     // Get recently updated profiles (sort by updatedAt latest)
     const sorted = [...enriched].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
@@ -50,6 +78,8 @@ router.get('/dashboard', auth, authorize(['FACULTY', 'ADMIN']), async (req: Auth
         singaPenMembers: singaPenCount,
         availableForCollaboration: collabAvailableCount,
         skillCategoriesCount: categoriesSet.size,
+        departmentBreakdown,
+        programLevelSummary,
         recentlyUpdated: recentWithNames
       }
     });
@@ -67,12 +97,14 @@ router.get('/students/search', auth, authorize(['FACULTY', 'ADMIN']), async (req
     const department = req.query.department as string;
     const course = req.query.course as string;
     const academicStatus = req.query.academicStatus as string;
+    const programLevel = String(req.query.programLevel || '').toUpperCase();
+    const currentStudyYear = req.query.studyYear ? Number(req.query.studyYear) : undefined;
     const isSingaPenMember = req.query.isSingaPenMember === 'true' ? true : req.query.isSingaPenMember === 'false' ? false : undefined;
     const entrepreneurshipInterest = req.query.entrepreneurshipInterest === 'true' ? true : req.query.entrepreneurshipInterest === 'false' ? false : undefined;
     const availabilityQuery = req.query.availability ?? req.query.availableForProjects;
     const availableForProjects = availabilityQuery === 'true' ? true : availabilityQuery === 'false' ? false : undefined;
-    const page = parseInt(req.query.page as string || '1', 10);
-    const limit = parseInt(req.query.limit as string || '10', 10);
+    const page = Math.max(parseInt(req.query.page as string || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string || '10', 10), 1), 50);
 
     // 1. Fetch all student profiles and enrich with academic details
     const profiles = await StudentProfiles.find();
@@ -101,12 +133,19 @@ router.get('/students/search', auth, authorize(['FACULTY', 'ADMIN']), async (req
         name: user ? user.name : 'Unknown Student',
         email: user ? user.email : '',
         isActive: user ? user.isActive : false,
+        programLevel: classifyProgramLevel(profile.course, profile.courseDurationYears),
         skills: studentSkills
       };
     });
 
     // Apply strict account active check
     filteredList = filteredList.filter(s => s.isActive);
+    const availableDepartments = Array.from(new Set(filteredList.map(s => String(s.department || '').trim()).filter(Boolean))).sort();
+    const availableCourses = Array.from(new Set(filteredList.map(s => String(s.course || '').trim()).filter(Boolean))).sort();
+    const availableProgramLevels = {
+      UG: filteredList.filter((student) => student.programLevel === 'UG').length,
+      PG: filteredList.filter((student) => student.programLevel === 'PG').length,
+    };
 
     // Apply filters
     if (department) {
@@ -117,6 +156,12 @@ router.get('/students/search', auth, authorize(['FACULTY', 'ADMIN']), async (req
     }
     if (academicStatus) {
       filteredList = filteredList.filter(s => s.academicStatus === academicStatus);
+    }
+    if (['UG', 'PG'].includes(programLevel)) {
+      filteredList = filteredList.filter(s => s.programLevel === programLevel);
+    }
+    if (currentStudyYear) {
+      filteredList = filteredList.filter(s => Number(s.currentStudyYear) === currentStudyYear);
     }
     if (isSingaPenMember !== undefined) {
       filteredList = filteredList.filter(s => s.isSingaPenMember === isSingaPenMember);
@@ -171,7 +216,10 @@ router.get('/students/search', auth, authorize(['FACULTY', 'ADMIN']), async (req
         page,
         limit,
         total,
-        totalPages
+        totalPages: Math.max(totalPages, 1),
+        departments: availableDepartments,
+        courses: availableCourses,
+        programLevels: availableProgramLevels
       }
     });
   } catch (error) {
@@ -217,6 +265,7 @@ router.get('/students/:studentId', auth, authorize(['FACULTY', 'ADMIN']), async 
         expectedPassingYear: enriched.expectedPassingYear,
         expectedCompletionDate: enriched.expectedCompletionDate,
         courseDurationYears: enriched.courseDurationYears,
+        programLevel: classifyProgramLevel(enriched.course, enriched.courseDurationYears),
         currentStudyYear: enriched.currentStudyYear,
         academicStatus: enriched.academicStatus,
         isSingaPenMember: enriched.isSingaPenMember,
@@ -298,6 +347,214 @@ router.patch('/role-updates/:updateId/status', auth, authorize(['FACULTY', 'ADMI
     );
 
     return res.json({ success: true, message: 'Role update status updated.', data: serializeRoleUpdate(updated) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// Faculty workshop calendar. Uses the same Workshop model as Admin/Student flows.
+router.get('/workshops', auth, authorize(['FACULTY', 'ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10), 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '50'), 10), 1), 100);
+    const search = String(req.query.search || '').trim();
+
+    const where: any = {
+      OR: [
+        { isPublished: true },
+        { createdById: req.user!._id! },
+      ],
+    };
+
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { venue: { contains: search, mode: 'insensitive' } },
+            { organizer: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    const [total, workshops] = await Promise.all([
+      prisma.workshop.count({ where }),
+      prisma.workshop.findMany({
+        where,
+        include: {
+          participations: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: [{ startDateTime: 'asc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: workshops.map(serializeWorkshop),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Faculty can create an event/workshop using the shared Workshop model.
+// Faculty-created records are published immediately so they appear in the
+// student workshop calendar and the faculty calendar without a second route.
+router.post(
+  '/workshops',
+  auth,
+  authorize(['FACULTY']),
+  uploadWorkshopPoster.single('poster'),
+  async (req: AuthenticatedRequest, res: Response, next) => {
+    try {
+      const body = {
+        ...req.body,
+        maximumParticipants: req.body.maximumParticipants ? Number(req.body.maximumParticipants) : undefined,
+        isFeatured: req.body.isFeatured === true || req.body.isFeatured === 'true',
+        isPublished: true,
+      };
+
+      const parsed = WorkshopSchema.safeParse(body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: parsed.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        });
+      }
+
+      const data = parsed.data;
+      const slug = `${data.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
+
+      const created = await prisma.workshop.create({
+        data: {
+          ...data,
+          slug,
+          startDateTime: new Date(data.startDateTime),
+          endDateTime: new Date(data.endDateTime),
+          posterImage: req.file ? `/uploads/gallery/images/${req.file.filename}` : data.posterImage || null,
+          registrationUrl: data.registrationUrl || null,
+          targetAudience: data.targetAudience || null,
+          maximumParticipants: data.maximumParticipants || null,
+          galleryAlbumId: data.galleryAlbumId || null,
+          isPublished: true,
+          createdById: req.user!._id!,
+        },
+        include: {
+          participations: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      try {
+        const students = await prisma.user.findMany({
+          where: { role: 'STUDENT', isActive: true },
+          select: { id: true },
+        });
+
+        if (students.length) {
+          await prisma.notification.createMany({
+            data: students.map((student) => ({
+              userId: student.id,
+              type: 'WORKSHOP',
+              title: created.title,
+              message: `${created.organizer} added a workshop at ${created.venue} on ${created.startDateTime.toLocaleDateString()}.`,
+              link: '/student/workshops',
+            })),
+          });
+        }
+      } catch (notificationError) {
+        console.error('Workshop created, but student notifications could not be queued:', notificationError);
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Workshop created and published.',
+        data: serializeWorkshop(created),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get('/workshops/:workshopId/registrations', auth, authorize(['FACULTY', 'ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const workshop = await prisma.workshop.findUnique({
+      where: { id: req.params.workshopId },
+      select: { id: true, title: true },
+    });
+
+    if (!workshop) {
+      return res.status(404).json({ success: false, message: 'Workshop not found.' });
+    }
+
+    const rows = await prisma.workshopParticipation.findMany({
+      where: { workshopId: workshop.id },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    return res.json({
+      success: true,
+      data: rows.map((row) => ({
+        _id: row.id,
+        status: row.status,
+        registeredAt: row.createdAt,
+        attendanceMarkedAt: row.attendanceMarkedAt,
+        student: {
+          _id: row.student.id,
+          name: row.student.user.name,
+          email: row.student.user.email,
+          registerNumber: row.student.registerNumber,
+          department: row.student.department,
+          course: row.student.course,
+          phone: row.student.phone,
+          programLevel: classifyProgramLevel(row.student.course, row.student.courseDurationYears),
+        },
+      })),
+    });
   } catch (error) {
     next(error);
   }

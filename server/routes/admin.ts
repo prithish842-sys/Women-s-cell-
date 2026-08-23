@@ -18,11 +18,12 @@ import {
   WorkshopParticipationAdminSchema,
   WorkshopSchema,
 } from '../schemas/validation.js';
-import { uploadGallery, uploadAchievementFiles, uploadGallery as uploadWorkshopPoster } from '../middleware/upload.js';
+import { uploadGallery, uploadAchievementFiles, uploadGallery as uploadWorkshopPoster, uploadReportDocument } from '../middleware/upload.js';
 import { prisma } from '../config/prisma.js';
 import { findMatchingStudents } from '../utils/skillRequests.js';
 import { serializeWorkshop } from '../utils/workshops.js';
 import { findRoleUpdateForReview, notifyStudent, serializeRoleUpdate } from '../utils/studentRoleUpdates.js';
+import { classifyProgramLevel } from '../utils/programLevel.js';
 
 const router = Router();
 const complaintStatuses = ['SUBMITTED', 'UNDER_REVIEW', 'ASSIGNED', 'RESOLVED', 'CLOSED'] as const;
@@ -30,6 +31,99 @@ const complaintStatuses = ['SUBMITTED', 'UNDER_REVIEW', 'ASSIGNED', 'RESOLVED', 
 const serializeIccComplaint = (complaint: any) => ({
   ...complaint,
   _id: complaint.id,
+});
+
+router.get('/search', auth, authorize(['ADMIN', 'ICC_ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const query = String(req.query.q || '').trim();
+    if (query.length < 2) return res.json({ success: true, data: [] });
+    const term = query.toLowerCase();
+
+    const [users, students, faculty, schemes, workshops, albums] = await Promise.all([
+      Users.find(),
+      StudentProfiles.find(),
+      FacultyProfiles.find(),
+      GovernmentSchemes.find(),
+      prisma.workshop.findMany({
+        where: {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { venue: { contains: query, mode: 'insensitive' } },
+            { organizer: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+      prisma.galleryAlbum.findMany({
+        where: {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { venue: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    const userMap = new Map(users.map((user: any) => [user._id, user]));
+    const studentResults = students
+      .map((profile: any) => ({ profile, user: userMap.get(profile.userId) }))
+      .filter(({ profile, user }: any) => [user?.name, user?.email, profile.registerNumber, profile.department, profile.course].filter(Boolean).some(value => String(value).toLowerCase().includes(term)))
+      .slice(0, 5)
+      .map(({ profile, user }: any) => ({
+        id: profile._id,
+        type: 'Students',
+        title: user?.name || profile.registerNumber,
+        subtitle: `${profile.registerNumber} · ${profile.department}`,
+        path: `/admin/students?search=${encodeURIComponent(query)}`,
+      }));
+
+    const facultyResults = faculty
+      .map((profile: any) => ({ profile, user: userMap.get(profile.userId) }))
+      .filter(({ profile, user }: any) => [user?.name, user?.email, profile.staffId, profile.department, profile.designation].filter(Boolean).some(value => String(value).toLowerCase().includes(term)))
+      .slice(0, 5)
+      .map(({ profile, user }: any) => ({
+        id: profile._id,
+        type: 'Members',
+        title: user?.name || profile.staffId,
+        subtitle: `${profile.designation} · ${profile.department}`,
+        path: `/admin/members?search=${encodeURIComponent(query)}`,
+      }));
+
+    const schemeResults = schemes
+      .map(enrichSchemeDetails)
+      .filter((scheme: any) => [scheme.title, scheme.provider, scheme.category, scheme.shortDescription].filter(Boolean).some(value => String(value).toLowerCase().includes(term)))
+      .slice(0, 5)
+      .map((scheme: any) => ({
+        id: scheme._id || scheme.id,
+        type: 'Schemes',
+        title: scheme.title,
+        subtitle: `${scheme.provider} · ${scheme.status}`,
+        path: `/admin/schemes?search=${encodeURIComponent(query)}`,
+      }));
+
+    const workshopResults = workshops.map(workshop => ({
+      id: workshop.id,
+      type: 'Workshops',
+      title: workshop.title,
+      subtitle: `${workshop.venue} · ${workshop.category}`,
+      path: `/admin/workshops?search=${encodeURIComponent(query)}`,
+    }));
+
+    const galleryResults = albums.map(album => ({
+      id: album.id,
+      type: 'Gallery',
+      title: album.title,
+      subtitle: `${album.category}${album.venue ? ` · ${album.venue}` : ''}`,
+      path: `/admin/gallery?search=${encodeURIComponent(query)}`,
+    }));
+
+    return res.json({ success: true, data: [...studentResults, ...facultyResults, ...schemeResults, ...workshopResults, ...galleryResults].slice(0, 20) });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // 1. Admin Dashboard Statistics
@@ -103,14 +197,28 @@ router.get('/dashboard', auth, authorize(['ADMIN', 'ICC_ADMIN']), async (req: Au
       PASSING_OUT_SOON: passingSoon,
       PASSED_OUT: passedOut,
     };
-    const departmentCounts = students.reduce<Record<string, number>>((counts, student) => {
-      counts[student.department] = (counts[student.department] || 0) + 1;
+    const departmentLevelCounts = enriched.reduce<Record<string, { ug: number; pg: number; total: number }>>((counts, student) => {
+      const rawDepartment = String(student.department || 'Unspecified').trim() || 'Unspecified';
+      const existingKey = Object.keys(counts).find((key) => key.toLowerCase() === rawDepartment.toLowerCase());
+      const department = existingKey || rawDepartment;
+      const current = counts[department] || { ug: 0, pg: 0, total: 0 };
+      const level = classifyProgramLevel(student.course, student.courseDurationYears);
+
+      if (level === 'PG') current.pg += 1;
+      else current.ug += 1;
+
+      current.total += 1;
+      counts[department] = current;
       return counts;
     }, {});
-    const topDepartments = Object.entries(departmentCounts)
-      .sort((a, b) => b[1] - a[1])
+
+    const departmentCounts = Object.fromEntries(
+      Object.entries(departmentLevelCounts).map(([name, counts]) => [name, counts.total]),
+    );
+    const topDepartments = Object.entries(departmentLevelCounts)
+      .sort((a, b) => b[1].total - a[1].total)
       .slice(0, 8)
-      .map(([name, count]) => ({ name, count }));
+      .map(([name, counts]) => ({ name, count: counts.total, ug: counts.ug, pg: counts.pg }));
     const topSkills = Object.entries(skillsList.reduce<Record<string, number>>((counts, skill) => {
       counts[skill.skillName] = (counts[skill.skillName] || 0) + 1;
       return counts;
@@ -194,6 +302,97 @@ router.get('/dashboard', auth, authorize(['ADMIN', 'ICC_ADMIN']), async (req: Au
   }
 });
 
+router.get('/users', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const role = String(req.query.role || '').trim();
+    const status = String(req.query.status || '').trim();
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10), 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '10'), 10), 1), 50);
+
+    const where: any = {
+      ...(role && ['ADMIN', 'STUDENT', 'FACULTY', 'ICC_ADMIN'].includes(role) ? { role } : {}),
+      ...(status === 'active' ? { isActive: true } : {}),
+      ...(status === 'inactive' ? { isActive: false } : {}),
+      ...(search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { identifier: { contains: search, mode: 'insensitive' } },
+        ],
+      } : {}),
+    };
+
+    const [total, rows, roleRows, activeCount, inactiveCount] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          identifier: true,
+          isActive: true,
+          lastLoginAt: true,
+          createdAt: true,
+          studentProfile: { select: { id: true, phone: true, profileImage: true, department: true, course: true, isSingaPenMember: true, clubRole: true } },
+          facultyProfile: { select: { id: true, phone: true, department: true, designation: true, staffId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({ where: { isActive: false } }),
+    ]);
+
+    const roleDistribution = roleRows.map(row => ({ role: row.role, count: row._count._all }));
+    return res.json({
+      success: true,
+      data: rows.map(row => ({
+        _id: row.id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        identifier: row.identifier,
+        isActive: row.isActive,
+        lastLoginAt: row.lastLoginAt,
+        createdAt: row.createdAt,
+        phone: row.studentProfile?.phone || row.facultyProfile?.phone || '',
+        profileImage: row.studentProfile?.profileImage || '',
+        department: row.studentProfile?.department || row.facultyProfile?.department || '',
+        designation: row.facultyProfile?.designation || row.studentProfile?.clubRole || '',
+        isSingaPenMember: row.studentProfile?.isSingaPenMember || false,
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit), roleDistribution, activeCount, inactiveCount },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/users/:userId/status', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { isActive } = req.body;
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isActive boolean is required.' });
+    }
+    if (req.params.userId === req.user!._id && !isActive) {
+      return res.status(400).json({ success: false, message: 'You cannot suspend your own admin account.' });
+    }
+    const updated = await prisma.user.update({
+      where: { id: req.params.userId },
+      data: { isActive },
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+    });
+    return res.json({ success: true, message: `${updated.name} is now ${updated.isActive ? 'active' : 'inactive'}.`, data: { ...updated, _id: updated.id } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // 2. Student Directory Management
 router.get('/students', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
   try {
@@ -217,9 +416,27 @@ router.get('/students', auth, authorize(['ADMIN']), async (req: AuthenticatedReq
         ...profile,
         name: user ? user.name : 'Unknown Student',
         email: user ? user.email : '',
-        isActive: user ? user.isActive : false
+        isActive: user ? user.isActive : false,
+        programLevel: classifyProgramLevel(profile.course, profile.courseDurationYears),
       };
     });
+
+    const departmentOptions = Array.from(
+      fullList.reduce<Map<string, string>>((map, student) => {
+        const name = String(student.department || '').trim();
+        if (name && !map.has(name.toLowerCase())) map.set(name.toLowerCase(), name);
+        return map;
+      }, new Map<string, string>()).values(),
+    ).sort((a, b) => a.localeCompare(b));
+
+    const programLevelCounts = fullList.reduce(
+      (counts, student) => {
+        if (student.programLevel === 'PG') counts.pg += 1;
+        else counts.ug += 1;
+        return counts;
+      },
+      { ug: 0, pg: 0 },
+    );
 
     // Filters
     if (department) {
@@ -249,7 +466,9 @@ router.get('/students', auth, authorize(['ADMIN']), async (req: AuthenticatedReq
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
+        departments: departmentOptions,
+        programLevels: programLevelCounts,
       }
     });
   } catch (error) {
@@ -579,10 +798,39 @@ router.delete('/faculty/:facultyId', auth, authorize(['ADMIN']), async (req: Aut
 // 4. Scheme Management (Government Schemes CRUD)
 router.get('/schemes', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const schemes = await GovernmentSchemes.find();
+    const page = Math.max(parseInt(req.query.page as string || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string || '12', 10), 1), 500);
+    const [schemes, savedCounts] = await Promise.all([
+      GovernmentSchemes.find(),
+      prisma.savedScheme.groupBy({
+        by: ['schemeId'],
+        _count: { _all: true },
+      }),
+    ]);
+    const savedCountMap = new Map(savedCounts.map(row => [row.schemeId, row._count._all]));
+    const enrichedSchemes = schemes.map(scheme => {
+      const enriched = enrichSchemeDetails(scheme) as any;
+      const schemeId = enriched._id || enriched.id;
+      return {
+        ...enriched,
+        studentEngagementCount: savedCountMap.get(schemeId) || 0,
+      };
+    });
+    const total = enrichedSchemes.length;
+    const pageData = enrichedSchemes.slice((page - 1) * limit, page * limit);
     return res.json({
       success: true,
-      data: schemes.map(enrichSchemeDetails)
+      data: pageData,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+        featured: enrichedSchemes.filter(scheme => scheme.isFeatured).length,
+        active: enrichedSchemes.filter(scheme => scheme.status === 'ACTIVE').length,
+        upcoming: enrichedSchemes.filter(scheme => scheme.status === 'UPCOMING').length,
+        studentEngagementTotal: enrichedSchemes.reduce((sum, scheme) => sum + Number(scheme.studentEngagementCount || 0), 0),
+      },
     });
   } catch (error) {
     next(error);
@@ -1344,6 +1592,8 @@ const serializeSkillRequest = (request: any) => ({
   ...request,
   _id: request.id,
   matchingStudentCount: request.recipients?.length ?? request._count?.recipients ?? 0,
+  interestedCount: request.recipients?.filter?.((recipient: any) => recipient.responseStatus === 'INTERESTED').length ?? 0,
+  withdrawnCount: request.recipients?.filter?.((recipient: any) => recipient.responseStatus === 'WITHDRAWN').length ?? 0,
 });
 
 router.post('/skill-requests/preview-matches', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
@@ -1382,7 +1632,7 @@ router.get('/skill-requests', auth, authorize(['ADMIN']), async (req: Authentica
       prisma.skillRequest.count({ where }),
       prisma.skillRequest.findMany({
         where,
-        include: { _count: { select: { recipients: true } } },
+        include: { recipients: { select: { responseStatus: true } }, _count: { select: { recipients: true } } },
         orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
@@ -2024,6 +2274,101 @@ router.delete('/safety-directory/:contactId', auth, authorize(['ADMIN']), async 
   }
 });
 
+
+router.get('/report-documents', auth, authorize(['ADMIN']), async (_req: AuthenticatedRequest, res, next) => {
+  try {
+    const record = await prisma.siteContent.findUnique({ where: { sectionKey: 'admin-report-documents' } });
+    const documents = Array.isArray((record?.metadata as any)?.documents) ? (record?.metadata as any).documents : [];
+    return res.json({ success: true, data: documents });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/report-documents', auth, authorize(['ADMIN']), uploadReportDocument.single('report'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'Select a PDF report to upload.' });
+    const title = String(req.body.title || req.file.originalname.replace(/\.pdf$/i, '')).trim().slice(0, 120);
+    if (!title) {
+      fs.rmSync(req.file.path, { force: true });
+      return res.status(400).json({ success: false, message: 'Report title is required.' });
+    }
+
+    const current = await prisma.siteContent.findUnique({ where: { sectionKey: 'admin-report-documents' } });
+    const previous = Array.isArray((current?.metadata as any)?.documents) ? (current?.metadata as any).documents : [];
+    const document = {
+      id: `report-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title,
+      fileName: req.file.originalname,
+      fileNameOnDisk: req.file.filename,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: req.user!._id!,
+    };
+    const documents = [document, ...previous].slice(0, 100);
+
+    await prisma.siteContent.upsert({
+      where: { sectionKey: 'admin-report-documents' },
+      update: {
+        content: 'Admin report document registry',
+        metadata: { documents },
+        updatedById: req.user!._id!,
+      },
+      create: {
+        sectionKey: 'admin-report-documents',
+        title: 'Admin Report Documents',
+        content: 'Admin report document registry',
+        metadata: { documents },
+        updatedById: req.user!._id!,
+      },
+    });
+
+    return res.status(201).json({ success: true, message: 'Report uploaded.', data: document });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.get('/report-documents/:documentId/download', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const current = await prisma.siteContent.findUnique({ where: { sectionKey: 'admin-report-documents' } });
+    const documents = Array.isArray((current?.metadata as any)?.documents) ? (current?.metadata as any).documents : [];
+    const document = documents.find((item: any) => item.id === req.params.documentId);
+    if (!document?.fileNameOnDisk) return res.status(404).json({ success: false, message: 'Report document not found.' });
+
+    const filePath = path.join(process.cwd(), 'uploads', 'private', 'reports', path.basename(String(document.fileNameOnDisk)));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'Report file is unavailable.' });
+
+    return res.download(filePath, String(document.fileName || 'report.pdf'));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/report-documents/:documentId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const current = await prisma.siteContent.findUnique({ where: { sectionKey: 'admin-report-documents' } });
+    const previous = Array.isArray((current?.metadata as any)?.documents) ? (current?.metadata as any).documents : [];
+    const document = previous.find((item: any) => item.id === req.params.documentId);
+    if (!document) return res.status(404).json({ success: false, message: 'Report document not found.' });
+
+    const documents = previous.filter((item: any) => item.id !== req.params.documentId);
+    await prisma.siteContent.update({
+      where: { sectionKey: 'admin-report-documents' },
+      data: { metadata: { documents }, updatedById: req.user!._id! },
+    });
+
+    if (document.fileNameOnDisk) {
+      const fileName = path.basename(String(document.fileNameOnDisk));
+      fs.rmSync(path.join(process.cwd(), 'uploads', 'private', 'reports', fileName), { force: true });
+    }
+
+    return res.json({ success: true, message: 'Report document removed.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/reports', auth, authorize(['ADMIN']), async (_req: AuthenticatedRequest, res, next) => {
   try {
     const [
@@ -2038,7 +2383,7 @@ router.get('/reports', auth, authorize(['ADMIN']), async (_req: AuthenticatedReq
       savedSchemes,
       pendingIccCases,
     ] = await Promise.all([
-      prisma.studentProfile.groupBy({ by: ['department'], _count: { _all: true } }),
+      prisma.studentProfile.findMany({ select: { department: true, course: true, courseDurationYears: true } }),
       prisma.workshop.count(),
       prisma.skillRequest.groupBy({ by: ['status'], _count: { _all: true } }),
       prisma.governmentScheme.groupBy({ by: ['status'], _count: { _all: true } }),
@@ -2052,7 +2397,22 @@ router.get('/reports', auth, authorize(['ADMIN']), async (_req: AuthenticatedReq
     return res.json({
       success: true,
       data: {
-        departments: departments.map(row => ({ label: row.department, count: row._count._all })),
+        departments: Object.values(
+          departments.reduce<Record<string, { label: string; count: number; ug: number; pg: number }>>((map, row) => {
+            const rawDepartment = String(row.department || 'Unspecified').trim() || 'Unspecified';
+            const existingKey = Object.keys(map).find((key) => key.toLowerCase() === rawDepartment.toLowerCase());
+            const key = existingKey || rawDepartment;
+            const current = map[key] || { label: key, count: 0, ug: 0, pg: 0 };
+            const level = classifyProgramLevel(row.course, row.courseDurationYears);
+
+            current.count += 1;
+            if (level === 'PG') current.pg += 1;
+            else current.ug += 1;
+
+            map[key] = current;
+            return map;
+          }, {}),
+        ).sort((a, b) => b.count - a.count),
         workshops,
         registrations,
         attendance,

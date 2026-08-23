@@ -68,11 +68,11 @@ export const RoleUpdatesReviewPanel: React.FC<{ mode: ReviewMode }> = ({ mode })
   };
 
   return (
-    <div className="space-y-6 fade-in-up">
-      <section className="flex flex-col gap-4 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5 fade-in-up">
+      <section className="flex flex-col gap-4 rounded-[20px] bg-[linear-gradient(110deg,#eef3ff,#f4f1ff)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-maroon-700">Student In-Charge Updates</h1>
-          <p className="text-xs text-gray-500">Review responsibility updates submitted by Women Empowerment Cell student office bearers.</p>
+          <h1 className="text-3xl font-black tracking-[-0.03em] text-[#071426]">{mode === 'faculty' ? 'Student In-Charges & Approvals' : 'Student In-Charge Updates'}</h1>
+          <p className="mt-1 text-xs font-semibold text-[#52617f]">Review responsibility updates submitted by Women Empowerment Cell student office bearers.</p>
         </div>
         <button onClick={load} className="inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-xs font-bold">
           <RefreshCw className="h-4 w-4" /> Refresh
@@ -86,14 +86,14 @@ export const RoleUpdatesReviewPanel: React.FC<{ mode: ReviewMode }> = ({ mode })
           ['Follow-up', summary?.followUpRequired || 0],
           ['Completed', summary?.completed || 0],
         ].map(([label, value]) => (
-          <div key={label as string} className="rounded-lg border bg-white p-4 shadow-sm">
+          <div key={label as string} className="rounded-xl border border-[#e4eaff] bg-white p-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-gray-400">{label}</p>
             <p className="mt-1 font-serif text-2xl font-bold text-maroon-700">{value as number}</p>
           </div>
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 shadow-sm md:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3 rounded-xl border border-[#e4eaff] bg-white p-4 shadow-sm md:grid-cols-3">
         <label className="space-y-1">
           <span className="text-xs font-bold uppercase text-gray-500">Status</span>
           <select value={status} onChange={e => setStatus(e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm">

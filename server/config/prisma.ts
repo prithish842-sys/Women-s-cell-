@@ -15,17 +15,3 @@ export async function connectDatabase() {
 export async function disconnectDatabase() {
   await prisma.$disconnect();
 }
-
-let shutdownRegistered = false;
-export function registerPrismaShutdown() {
-  if (shutdownRegistered) return;
-  shutdownRegistered = true;
-
-  const shutdown = async () => {
-    await disconnectDatabase().catch(() => undefined);
-    process.exit(0);
-  };
-
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-}

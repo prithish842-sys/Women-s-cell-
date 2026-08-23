@@ -167,6 +167,8 @@ export const AdminSkillRequests: React.FC = () => {
                     <h3 className="font-serif font-bold text-maroon-700">{request.title}</h3>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100">{request.status}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700">{request.matchingStudentCount} matched</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{request.interestedCount || 0} interested</span>
+                    {(request.withdrawnCount || 0) > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600">{request.withdrawnCount} withdrawn</span>}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">{request.description}</p>
                   <p className="text-[11px] text-gray-400 mt-1">{request.requiredSkills.join(', ')}</p>

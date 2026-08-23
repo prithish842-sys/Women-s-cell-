@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import api from '../../utils/api.js';
 import { 
   Landmark, Plus, Trash2, Edit3, ShieldAlert, CheckCircle, 
-  HelpCircle, RefreshCw, Save, X, Sparkles, Star 
+  Save, X, Star, FileText, CheckCircle2
 } from 'lucide-react';
+import { AdminNotice, AdminPageHeader, AdminSkeletonBlock, AdminStatCard, adminButton, adminCard, formatNumber } from '../../components/admin/AdminUI.js';
 
 export const AdminSchemes: React.FC = () => {
   const [schemes, setSchemes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0, featured: 0, active: 0, upcoming: 0, studentEngagementTotal: 0 });
 
   // Editor states
   const [isEditing, setIsEditing] = useState(false);
@@ -39,16 +41,17 @@ export const AdminSchemes: React.FC = () => {
   ];
 
   useEffect(() => {
-    fetchSchemes();
+    void fetchSchemes();
   }, []);
 
   const fetchSchemes = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await api.get('/public/schemes');
+      const res = await api.get('/admin/schemes', { params: { page: 1, limit: 500 } });
       if (res.data.success) {
         setSchemes(res.data.data);
+        setMeta(res.data.meta || { page: 1, totalPages: 1, total: res.data.data.length, featured: 0, active: 0, upcoming: 0, studentEngagementTotal: 0 });
       } else {
         setErrorMsg('Failed to query active schemes.');
       }
@@ -184,36 +187,33 @@ export const AdminSchemes: React.FC = () => {
 
   return (
     <div className="space-y-6 fade-in-up">
-      {/* Header */}
-      <div className="border-b border-gray-200 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-maroon-700">Welfare Schemes Catalog Editor</h1>
-          <p className="text-xs text-gray-500">Publish scholarships, vocational grants, and startup funding criteria.</p>
-        </div>
-        {!isEditing && (
+      <AdminPageHeader
+        title="Govt Schemes"
+        description="Manage and monitor government schemes on the platform."
+        action={!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
-            className="px-4 py-2 bg-maroon-700 hover:bg-maroon-800 text-white rounded text-xs font-bold inline-flex items-center space-x-1 shadow"
+            className={adminButton}
           >
             <Plus className="w-4 h-4" />
-            <span>Publish New Scheme</span>
+            <span>Add New Scheme</span>
           </button>
-        )}
-      </div>
+        ) : null}
+      />
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard label="Total Schemes" value={formatNumber(meta.total)} icon={FileText} tone="purple" footer={`Featured: ${formatNumber(meta.featured)}`} />
+        <AdminStatCard label="Active Schemes" value={formatNumber(meta.active)} icon={CheckCircle2} tone="green" footer="Applications open by status" />
+        <AdminStatCard label="Upcoming" value={formatNumber(meta.upcoming)} icon={Landmark} tone="blue" footer="Not open yet" />
+        <AdminStatCard label="Student Interest" value={formatNumber(meta.studentEngagementTotal)} icon={ShieldAlert} tone="orange" footer="Students who saved schemes in the portal" />
+      </section>
 
       {/* Notifications */}
       {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-start space-x-2">
-          <ShieldAlert className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
-          <span>{errorMsg}</span>
-        </div>
+          <AdminNotice type="error">{errorMsg}</AdminNotice>
       )}
 
       {successMsg && (
-        <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl flex items-start space-x-2">
-          <CheckCircle className="w-5 h-5 shrink-0 text-green-500 mt-0.5" />
-          <span>{successMsg}</span>
-        </div>
+          <AdminNotice type="success">{successMsg}</AdminNotice>
       )}
 
       {/* Form Block */}
@@ -444,20 +444,23 @@ export const AdminSchemes: React.FC = () => {
 
       {/* Schemes List Cards */}
       {loading ? (
-        <div className="bg-white rounded-xl border p-8 text-center text-xs text-gray-500 animate-pulse">
-          Querying active catalog indices...
-        </div>
+        <AdminSkeletonBlock rows={6} />
       ) : schemes.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border text-gray-500 text-xs">
           No government schemes added yet. Publish one now.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`${adminCard} p-4`}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-black text-[#071247]">All Schemes</h2>
+            <span className="text-xs font-bold text-[#63708f]">{formatNumber(meta.total)} total scheme records</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {schemes.map((sc) => (
             <div 
               key={sc._id}
               className={`bg-white rounded-xl p-5 border shadow-sm flex flex-col justify-between transition-shadow hover:shadow-md ${
-                sc.isFeatured ? 'border-l-4 border-l-gold-600 border-gray-250' : 'border-gray-200'
+                sc.isFeatured ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-200'
               }`}
             >
               <div>
@@ -474,10 +477,13 @@ export const AdminSchemes: React.FC = () => {
                     )}
                     <h3 className="text-sm font-bold text-maroon-700 mt-2 line-clamp-1">{sc.title}</h3>
                     <p className="text-[10px] text-gray-400 font-semibold mt-0.5">By {sc.provider}</p>
+                    <p className="mt-2 text-[10px] font-black text-[#2563eb]">{formatNumber(sc.studentEngagementCount || 0)} interested student(s) · saved in portal</p>
                   </div>
 
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                    sc.status === 'EXPIRED' ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-700'
+                    sc.status === 'EXPIRED'
+                      ? 'bg-white text-slate-700 border border-slate-200'
+                      : 'bg-green-50 text-green-700'
                   }`}>
                     {sc.status}
                   </span>
@@ -493,14 +499,14 @@ export const AdminSchemes: React.FC = () => {
                 <div className="space-x-1 flex">
                   <button
                     onClick={() => handleEditClick(sc)}
-                    className="p-1.5 text-gray-500 hover:text-maroon-700 hover:bg-rose-50/55 rounded transition-all inline-flex items-center space-x-1"
+                    className="p-1.5 text-[#415176] hover:text-maroon-700 hover:bg-rose-50/55 rounded transition-all inline-flex items-center space-x-1"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit</span>
                   </button>
                   <button
                     onClick={() => handleDelete(sc._id, sc.title)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-all inline-flex items-center space-x-1"
+                    className="p-1.5 text-[#415176] hover:text-red-600 hover:bg-red-50 rounded transition-all inline-flex items-center space-x-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Purge</span>
@@ -509,6 +515,10 @@ export const AdminSchemes: React.FC = () => {
               </div>
             </div>
           ))}
+          </div>
+          <div className="mt-4 border-t border-[#edf2fb] pt-3 text-xs font-semibold text-[#63708f]">
+            Showing the complete current scheme catalogue. “Interested students” is based on students who saved the scheme inside this portal; official government application submission happens on the linked government website.
+          </div>
         </div>
       )}
     </div>

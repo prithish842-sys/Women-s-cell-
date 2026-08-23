@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../utils/api.js';
+import { resolveUploadUrl } from '../../utils/api.js';
 import { 
   PlusCircle, Edit2, Trash2, Image, Upload, FileText, Calendar, 
-  MapPin, CheckCircle, AlertCircle, X, ArrowLeft, ArrowRight, Sparkles 
+  CheckCircle, AlertCircle, X, ArrowLeft, Eye, FolderOpen 
 } from 'lucide-react';
+import { AdminNotice, AdminPageHeader, AdminSkeletonBlock, AdminStatCard, adminButton, adminCard, adminGhostButton, formatNumber } from '../../components/admin/AdminUI.js';
 
 interface GalleryAlbum {
   _id: string;
@@ -354,25 +356,14 @@ export const GalleryManager: React.FC = () => {
   return (
     <div className="space-y-8 fade-in-up">
       {/* Dynamic Header */}
-      <section className="border-b border-matte-beige pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-bold text-matte-maroon">
-            {viewState === 'ALBUM_LIST' && 'Photo Gallery Hub'}
-            {viewState === 'ALBUM_FORM' && (isEditing ? 'Modify Album Settings' : 'Create New Gallery Album')}
-            {viewState === 'IMAGE_MANAGER' && 'Upload & Organize Photos'}
-          </h1>
-          <p className="text-xs text-matte-charcoal/60 mt-0.5">
-            {viewState === 'ALBUM_LIST' && 'Administer public album entries, cover photos, and event details.'}
-            {viewState === 'ALBUM_FORM' && 'Populate administrative information, categories, and background image.'}
-            {viewState === 'IMAGE_MANAGER' && `Managing photos inside: ${selectedAlbum?.title}`}
-          </p>
-        </div>
-
-        <div className="flex gap-2">
+      <AdminPageHeader
+        title={viewState === 'ALBUM_LIST' ? 'Gallery Management' : viewState === 'ALBUM_FORM' ? (isEditing ? 'Modify Album Settings' : 'Create New Gallery Album') : 'Upload & Organize Photos'}
+        description={viewState === 'ALBUM_LIST' ? 'Organize, manage, and showcase real gallery memories.' : viewState === 'ALBUM_FORM' ? 'Populate administrative information, categories, and cover images.' : `Managing photos inside: ${selectedAlbum?.title}`}
+        action={<div className="flex gap-2">
           {viewState !== 'ALBUM_LIST' && (
             <button
               onClick={() => setViewState('ALBUM_LIST')}
-              className="px-4 py-2 bg-matte-cream hover:bg-matte-beige/40 border border-matte-beige text-matte-maroon rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+              className={adminGhostButton}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Albums</span>
@@ -381,36 +372,36 @@ export const GalleryManager: React.FC = () => {
           {viewState === 'ALBUM_LIST' && (
             <button
               onClick={handleOpenCreate}
-              className="px-4 py-2 bg-matte-maroon hover:bg-matte-maroon/90 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-colors cursor-pointer"
+              className={adminButton}
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Create Album</span>
             </button>
           )}
-        </div>
-      </section>
+        </div>}
+      />
+      {viewState === 'ALBUM_LIST' && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <AdminStatCard label="Total Albums" value={formatNumber(albums.length)} icon={FolderOpen} tone="purple" footer={`Public: ${formatNumber(albums.filter(a => a.isPublished).length)}`} />
+          <AdminStatCard label="Total Photos" value={formatNumber(albums.reduce((sum, album) => sum + Number(album.photoCount || 0), 0))} icon={Image} tone="teal" footer="Across all albums" />
+          <AdminStatCard label="Featured Albums" value={formatNumber(albums.filter(a => a.isFeatured).length)} icon={Eye} tone="blue" footer="Highlighted in public UI" />
+          <AdminStatCard label="Private Albums" value={formatNumber(albums.filter(a => !a.isPublished).length)} icon={FileText} tone="orange" footer="Not public" />
+        </section>
+      )}
 
       {/* Notifications */}
       {error && (
-        <div className="bg-rose-50 border border-matte-rose/30 text-matte-maroon p-4 rounded-xl flex items-center space-x-2">
-          <AlertCircle className="w-4 h-4 text-matte-rose shrink-0" />
-          <p className="text-xs font-medium">{error}</p>
-        </div>
+        <AdminNotice type="error">{error}</AdminNotice>
       )}
       {success && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl flex items-center space-x-2">
-          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <p className="text-xs font-medium">{success}</p>
-        </div>
+        <AdminNotice type="success">{success}</AdminNotice>
       )}
 
       {/* VIEW 1: ALBUM LIST TABLE/GRID */}
       {viewState === 'ALBUM_LIST' && (
         <div className="space-y-6">
           {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-matte-maroon/20 border-t-matte-maroon"></div>
-            </div>
+            <AdminSkeletonBlock rows={6} />
           ) : albums.length === 0 ? (
             <div className="text-center py-16 bg-matte-cream border border-dashed border-matte-beige rounded-2xl p-8 space-y-3 max-w-lg mx-auto">
               <Image className="w-10 h-10 text-matte-charcoal/30 mx-auto" />
@@ -418,7 +409,12 @@ export const GalleryManager: React.FC = () => {
               <p className="text-xs text-matte-charcoal/50">Click "Create Album" above to set up your first media folder.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className={`${adminCard} p-4`}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-black text-[#071247]">Albums & Folders</h2>
+                <span className="text-xs font-bold text-[#63708f]">{formatNumber(albums.length)} albums</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
               {albums.map((album) => (
                 <div
                   key={album._id}
@@ -428,7 +424,7 @@ export const GalleryManager: React.FC = () => {
                     {/* Cover Photo */}
                     <div className="relative aspect-video bg-matte-cream overflow-hidden">
                       <img
-                        src={album.coverImage}
+                        src={resolveUploadUrl(album.coverImage)}
                         alt={album.title}
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover"
@@ -485,6 +481,7 @@ export const GalleryManager: React.FC = () => {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
         </div>
@@ -610,7 +607,7 @@ export const GalleryManager: React.FC = () => {
                     className="w-32 h-20 bg-matte-cream rounded-xl border border-dashed border-matte-beige flex flex-col items-center justify-center cursor-pointer hover:border-matte-rose/40 hover:bg-matte-blush/10 transition-all overflow-hidden shrink-0"
                   >
                     {coverPreview ? (
-                      <img src={coverPreview} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                      <img src={coverPreview.startsWith('blob:') ? coverPreview : resolveUploadUrl(coverPreview)} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center p-2">
                         <Upload className="w-4 h-4 text-matte-maroon mx-auto" />
@@ -767,7 +764,7 @@ export const GalleryManager: React.FC = () => {
                   >
                     <div className="relative flex-grow overflow-hidden bg-matte-cream">
                       <img
-                        src={img.imageUrl}
+                        src={resolveUploadUrl(img.imageUrl)}
                         alt="Album content"
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover"

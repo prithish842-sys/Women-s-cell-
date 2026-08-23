@@ -76,7 +76,7 @@ export const AdminDashboard: React.FC = () => {
       <section className="flex flex-col gap-3 border-b border-matte-beige pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-serif text-3xl font-bold text-matte-maroon">Admin Dashboard</h1>
-          <p className="mt-1 text-sm text-matte-charcoal/60">Signed in as {user?.name}. Values load from PostgreSQL.</p>
+          <p className="mt-1 text-sm text-matte-charcoal/60">Signed in as {user?.name}. Department counts and UG/PG splits come from registered student profiles in PostgreSQL.</p>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-md bg-matte-maroon px-4 py-2 text-xs font-bold text-white">
           <Sparkles className="h-4 w-4" />
@@ -157,13 +157,17 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-matte-beige bg-white p-5 shadow-sm">
-          <h2 className="font-serif text-xl font-bold text-matte-maroon">Department Participation</h2>
+          <h2 className="font-serif text-xl font-bold text-matte-maroon">Live Department-wise Students</h2>
           <div className="mt-4 space-y-3">
             {(metrics.topDepartments || []).slice(0, 6).map((item: any) => {
               const maxCount = Math.max(...(metrics.topDepartments || []).map((row: any) => row.count), 1);
               return (
                 <div key={item.name}>
                   <div className="flex justify-between text-xs"><span>{item.name}</span><strong>{item.count}</strong></div>
+                  <div className="mt-1 flex gap-2 text-[10px] font-bold text-matte-charcoal/50">
+                    <span>UG {Number(item.ug || 0)}</span>
+                    <span>PG {Number(item.pg || 0)}</span>
+                  </div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-matte-cream">
                     <div className="h-full bg-matte-maroon" style={{ width: `${(item.count / maxCount) * 100}%` }} />
                   </div>

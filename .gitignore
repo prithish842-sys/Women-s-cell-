@@ -67,3 +67,56 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Local backup / transfer archives
+*.zip
+
+# Temporary project staging folders
+*-system-current/
+*-system-updated/
+*-replacement-only/
+
+# Build/runtime
+node_modules/
+dist/
+
+# Secrets
+.env
+
+# Local archives / transfer files
+*.zip
+
+# Temporary staging folders
+*-system-current/
+*-system-updated/
+*-replacement-only/
+
+# Dependencies and builds
+node_modules/
+dist/
+
+# Secrets
+.env
+
+# Local ZIP backups
+*.zip
+
+# Temporary staging folders
+*-system-current/
+*-system-updated/
+*-replacement-only/
+
+# Dependencies/build
+node_modules/
+dist/
+
+# Secrets
+.env
+
+*.zip
+*-system-current/
+*-system-updated/
+*-replacement-only/
+node_modules/
+dist/
+.env
