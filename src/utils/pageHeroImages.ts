@@ -1,10 +1,10 @@
-import homeHero from '../../page images/homepage.png';
-import aboutHero from '../../page images/aboutpage.png';
-import clubHero from '../../page images/singapenclub.png';
-import schemesHero from '../../page images/schemespage.png';
-import skillsHero from '../../page images/skillspage.png';
-import safetyHero from '../../page images/safetypage.png';
-import galleryHero from '../../page images/gallerypage.png';
+import homeHero from '../assets/images/hero/desktop/homepage.png';
+import aboutHero from '../assets/images/hero/desktop/aboutpage.png';
+import clubHero from '../assets/images/hero/desktop/singapenclub.png';
+import schemesHero from '../assets/images/hero/desktop/schemespage.png';
+import skillsHero from '../assets/images/hero/desktop/skillspage.png';
+import safetyHero from '../assets/images/hero/desktop/safetypage.png';
+import galleryHero from '../assets/images/hero/desktop/gallerypage.png';
 
 import mobileHomeHero from '../assets/images/hero/mobile/homepage.png';
 import mobileAboutHero from '../assets/images/hero/mobile/aboutpage.png';
@@ -33,4 +33,3 @@ export const mobilePageHeroImages = {
   safety: mobileSafetyHero,
   gallery: mobileGalleryHero,
 } as const;
-

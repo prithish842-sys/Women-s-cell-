@@ -1,20 +1,21 @@
-node_modules/
-.mongodb-data/
+/node_modules/
 
-dist/
-dist-server/
+/.mongodb-data/
 
-.codex-screenshots/
-.codex-member-recording-frames/
-.codex-member-recording-frames-125959/
-.codex-video-frames/
-.codex-video-frames-122224/
-.codex-gallery-video-130122/
+/dist/
+/dist-server/
 
-page images/
-events and gallery/
+/.codex-screenshots/
+/.codex-member-recording-frames/
+/.codex-member-recording-frames-125959/
+/.codex-video-frames/
+/.codex-video-frames-122224/
+/.codex-gallery-video-130122/
 
-uploads/
+/page images/
+/events and gallery/
+
+/uploads/
 
 *.zip
 *.log
@@ -23,5 +24,5 @@ uploads/
 .env.*
 !.env.example
 
-.git/
-.vscode/
+/.git/
+/.vscode/
