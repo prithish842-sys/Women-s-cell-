@@ -74,3 +74,6 @@ Thumbs.db
 *-system-current/
 *-system-updated/
 *-replacement-only/
+
+.vercel
+.env*

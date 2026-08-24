@@ -3,28 +3,39 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "db:up": "docker compose up -d --wait postgres",
     "db:status": "docker compose ps",
     "db:logs": "docker compose logs postgres --tail 50",
     "db:stop": "docker compose stop postgres",
+
     "predev": "npm run db:up",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server.ts",
     "dev:client": "vite --port 5173",
+
     "build": "npm run prisma:generate && npm run typecheck && npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist-server/server.mjs",
+
     "start": "node dist-server/server.mjs",
     "start:pm2": "pm2 start ecosystem.config.cjs --env production",
     "stop:pm2": "pm2 stop singa-pen-api",
     "restart:pm2": "pm2 reload singa-pen-api --update-env",
+
     "seed": "prisma db seed",
+
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('dist-server',{recursive:true,force:true})\"",
+
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",
+
     "audit:api": "tsx scripts/api-contract-audit.ts",
+
     "verify:types": "npm run typecheck",
     "verify:lint": "npm run lint",
     "verify:tests": "npm run test",
@@ -35,12 +46,14 @@
     "verify:compatibility": "tsx scripts/verification/compatibility-audit.ts",
     "verify:env": "tsx scripts/verification/env-audit.ts",
     "verify": "npm run verify:prisma && npm run verify:static && npm run verify:compatibility && npm run verify:env",
+
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+
     "db:setup": "npm run prisma:generate && prisma migrate dev && npm run seed"
   },
   "prisma": {
