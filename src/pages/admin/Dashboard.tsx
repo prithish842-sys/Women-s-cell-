@@ -157,7 +157,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-matte-beige bg-white p-5 shadow-sm">
-          <h2 className="font-serif text-xl font-bold text-matte-maroon">Live Department-wise Students</h2>
+          <h2 className="font-serif text-xl font-bold text-matte-maroon">Department Participation</h2>
           <div className="mt-4 space-y-3">
             {(metrics.topDepartments || []).slice(0, 6).map((item: any) => {
               const maxCount = Math.max(...(metrics.topDepartments || []).map((row: any) => row.count), 1);

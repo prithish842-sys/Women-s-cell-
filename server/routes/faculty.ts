@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma.js';
 import { RoleUpdateStatusSchema, WorkshopSchema } from '../schemas/validation.js';
 import { findRoleUpdateForReview, notifyStudent, serializeRoleUpdate } from '../utils/studentRoleUpdates.js';
 import { classifyProgramLevel } from '../utils/programLevel.js';
-import { uploadGallery as uploadWorkshopPoster } from '../middleware/upload.js';
+import { storedFileReference, uploadGallery as uploadWorkshopPoster } from '../middleware/upload.js';
 import { serializeWorkshop } from '../utils/workshops.js';
 
 const router = Router();
@@ -455,7 +455,7 @@ router.post(
           slug,
           startDateTime: new Date(data.startDateTime),
           endDateTime: new Date(data.endDateTime),
-          posterImage: req.file ? `/uploads/gallery/images/${req.file.filename}` : data.posterImage || null,
+          posterImage: req.file ? storedFileReference(req.file, `/uploads/gallery/images/${req.file.filename}`) : data.posterImage || null,
           registrationUrl: data.registrationUrl || null,
           targetAudience: data.targetAudience || null,
           maximumParticipants: data.maximumParticipants || null,

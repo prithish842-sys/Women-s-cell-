@@ -1,11 +1,10 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
-import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
 import { prisma } from '../config/prisma.js';
 import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
-import { PRIVATE_ICC_UPLOAD_ROOT, PUBLIC_UPLOAD_ROOT, uploadIccAttachment } from '../middleware/upload.js';
+import { PRIVATE_ICC_UPLOAD_ROOT, PUBLIC_UPLOAD_ROOT, sendPrivateStoredFile, storedFileReference, uploadIccAttachment } from '../middleware/upload.js';
 
 const router = Router();
 
@@ -43,29 +42,10 @@ function safeStoredAttachmentName(attachmentUrl?: string | null) {
   return filename && filename !== '.' && filename !== '..' ? filename : null;
 }
 
-function resolveInside(rootPath: string, filename: string) {
-  const resolved = path.resolve(rootPath, filename);
-  const root = path.resolve(rootPath);
-  return resolved !== root && resolved.startsWith(`${root}${path.sep}`) ? resolved : null;
-}
-
-function resolveIccAttachmentPath(attachmentUrl?: string | null) {
+function resolveIccAttachmentReference(attachmentUrl?: string | null) {
   const filename = safeStoredAttachmentName(attachmentUrl);
   if (!filename) return null;
-  const privatePath = resolveInside(PRIVATE_ICC_UPLOAD_ROOT, filename);
-  if (privatePath && fs.existsSync(privatePath)) return privatePath;
-  const legacyPath = resolveInside(path.join(PUBLIC_UPLOAD_ROOT, 'icc'), filename);
-  if (legacyPath && fs.existsSync(legacyPath)) return legacyPath;
-  return null;
-}
-
-function attachmentContentType(filePath: string) {
-  const extension = path.extname(filePath).toLowerCase();
-  if (['.jpg', '.jpeg'].includes(extension)) return 'image/jpeg';
-  if (extension === '.png') return 'image/png';
-  if (extension === '.webp') return 'image/webp';
-  if (extension === '.pdf') return 'application/pdf';
-  return 'application/octet-stream';
+  return `/private/icc/${filename}`;
 }
 
 router.post('/complaints', auth, authorize(['STUDENT']), uploadIccAttachment.single('attachment'), async (req: AuthenticatedRequest, res: Response, next) => {
@@ -81,7 +61,7 @@ router.post('/complaints', auth, authorize(['STUDENT']), uploadIccAttachment.sin
 
     const referenceNumber = await makeReferenceNumber();
     const data = parseResult.data;
-    const attachmentUrl = req.file ? `/private/icc/${req.file.filename}` : '';
+    const attachmentUrl = req.file ? storedFileReference(req.file, `/private/icc/${req.file.filename}`) : '';
 
     await prisma.iccComplaint.create({
       data: {
@@ -129,15 +109,18 @@ router.get('/complaints/:complaintId/attachment', auth, async (req: Authenticate
       return res.status(403).json({ success: false, message: 'Forbidden.' });
     }
 
-    const attachmentPath = resolveIccAttachmentPath(complaint.attachmentUrl);
+    const attachmentPath = resolveIccAttachmentReference(complaint.attachmentUrl);
     if (!attachmentPath) {
       return res.status(404).json({ success: false, message: 'Attachment not found.' });
     }
 
-    res.setHeader('Content-Type', attachmentContentType(attachmentPath));
-    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(attachmentPath).replace(/"/g, '')}"`);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    return res.sendFile(attachmentPath);
+    await sendPrivateStoredFile(res, attachmentPath, {
+      downloadName: path.basename(attachmentPath),
+      localRoot: complaint.attachmentUrl.startsWith('/uploads/icc/')
+        ? path.join(PUBLIC_UPLOAD_ROOT, 'icc')
+        : PRIVATE_ICC_UPLOAD_ROOT,
+    });
+    return;
   } catch (error) {
     next(error);
   }

@@ -18,14 +18,14 @@ import wellbeingRouter from './server/routes/wellbeing.js';
 import adminSafetyRouter from './server/routes/adminSafety.js';
 import { errorMiddleware } from './server/middleware/auth.js';
 import { connectDatabase, disconnectDatabase, prisma } from './server/config/prisma.js';
-import { PUBLIC_UPLOAD_ROOT } from './server/middleware/upload.js';
+import { PUBLIC_UPLOAD_ROOT, storageDriver } from './server/middleware/upload.js';
 import { createGracefulShutdownCoordinator } from './server/utils/gracefulShutdown.js';
 import { isApplicationReady, setApplicationReady, withTimeout } from './server/utils/readiness.js';
 
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
-const requiredEnv = ['DATABASE_URL', 'JWT_SECRET', ...(isProduction ? ['CLIENT_URL'] : [])];
+const requiredEnv = ['DATABASE_URL', 'JWT_SECRET', ...(isProduction ? ['PUBLIC_ORIGIN'] : [])];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
     throw new Error(`${key} is required. Copy .env.example to .env and configure it.`);
@@ -33,22 +33,57 @@ for (const key of requiredEnv) {
 }
 
 const PORT = Number(process.env.PORT) || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173';
+const allowedOrigins = new Set(
+  [PUBLIC_ORIGIN, process.env.CLIENT_URL]
+    .flatMap(value => String(value || '').split(','))
+    .map(value => value.trim())
+    .filter(Boolean),
+);
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS || 15000);
 const READY_DATABASE_TIMEOUT_MS = Number(process.env.READY_DATABASE_TIMEOUT_MS || 3000);
 const SERVER_REQUEST_TIMEOUT_MS = Number(process.env.SERVER_REQUEST_TIMEOUT_MS || 120000);
 const SERVER_HEADERS_TIMEOUT_MS = Number(process.env.SERVER_HEADERS_TIMEOUT_MS || 65000);
 const SERVER_KEEP_ALIVE_TIMEOUT_MS = Number(process.env.SERVER_KEEP_ALIVE_TIMEOUT_MS || 5000);
-if (isProduction && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(CLIENT_URL)) {
-  throw new Error('CLIENT_URL must be the deployed frontend origin in production.');
+const weakJwtSecrets = new Set(['secret', 'changeme', 'change_me', 'development-secret', 'dev-secret', '123456', 'password']);
+if (isProduction && [...allowedOrigins].some(origin => /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(origin))) {
+  throw new Error('PUBLIC_ORIGIN/CLIENT_URL must be deployed frontend origins in production.');
+}
+if (isProduction && (process.env.JWT_SECRET!.length < 32 || weakJwtSecrets.has(process.env.JWT_SECRET!.trim().toLowerCase()))) {
+  throw new Error('A strong JWT_SECRET of at least 32 characters is required in production.');
+}
+if (isProduction && storageDriver !== 'vercel_blob') {
+  throw new Error('STORAGE_DRIVER=vercel_blob is required in production so uploads are not stored on ephemeral local disk.');
+}
+if (isProduction && storageDriver === 'vercel_blob' && !process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) {
+  throw new Error('BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID is required for production file storage.');
 }
 
 function createApp() {
   const app = express();
 
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    referrerPolicy: { policy: 'no-referrer' },
+    hsts: isProduction ? { maxAge: 15552000, includeSubDomains: true } : false,
+  }));
   app.use(cors({
-    origin: CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('CORS origin is not allowed.'));
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
@@ -78,6 +113,24 @@ function createApp() {
   const uploadLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 80,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const publicFormLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const aiLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const searchLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: 120,
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -165,6 +218,11 @@ function createApp() {
 
   app.use('/api/v1/auth/login', authLimiter);
   app.use('/api/v1/auth/student/register', authLimiter);
+  app.use('/api/v1/wellbeing/me/chat', aiLimiter);
+  app.use('/api/v1/icc/complaints', publicFormLimiter);
+  app.use('/api/v1/safety/anonymous-concerns', publicFormLimiter);
+  app.use('/api/v1/admin/search', searchLimiter);
+  app.use('/api/v1/public/skills/search', searchLimiter);
   app.use('/api/v1/admin/gallery', uploadLimiter);
   app.use('/api/v1/admin/achievements', uploadLimiter);
 
@@ -184,6 +242,10 @@ function createApp() {
 }
 
 export const app = createApp();
+if (process.env.VERCEL === '1') {
+  setApplicationReady(true);
+}
+export default app;
 
 async function startServer() {
   await connectDatabase();
@@ -191,7 +253,7 @@ async function startServer() {
     setApplicationReady(true);
     console.log('================================================');
     console.log(`Singa Pen Portal API running on http://localhost:${PORT}`);
-    console.log(`Client origin allowed: ${CLIENT_URL}`);
+    console.log(`Client origin allowed: ${Array.from(allowedOrigins).join(', ')}`);
     console.log('================================================');
   });
 

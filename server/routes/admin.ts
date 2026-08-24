@@ -18,7 +18,15 @@ import {
   WorkshopParticipationAdminSchema,
   WorkshopSchema,
 } from '../schemas/validation.js';
-import { uploadGallery, uploadAchievementFiles, uploadGallery as uploadWorkshopPoster, uploadReportDocument } from '../middleware/upload.js';
+import {
+  deleteStoredFile,
+  sendPrivateStoredFile,
+  storedFileReference,
+  uploadGallery,
+  uploadAchievementFiles,
+  uploadGallery as uploadWorkshopPoster,
+  uploadReportDocument,
+} from '../middleware/upload.js';
 import { prisma } from '../config/prisma.js';
 import { findMatchingStudents } from '../utils/skillRequests.js';
 import { serializeWorkshop } from '../utils/workshops.js';
@@ -26,6 +34,11 @@ import { findRoleUpdateForReview, notifyStudent, serializeRoleUpdate } from '../
 import { classifyProgramLevel } from '../utils/programLevel.js';
 
 const router = Router();
+const parsePositiveInt = (value: unknown, fallback: number) => {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const complaintStatuses = ['SUBMITTED', 'UNDER_REVIEW', 'ASSIGNED', 'RESOLVED', 'CLOSED'] as const;
 
 const serializeIccComplaint = (complaint: any) => ({
@@ -400,8 +413,8 @@ router.get('/students', auth, authorize(['ADMIN']), async (req: AuthenticatedReq
     const department = req.query.department as string;
     const course = req.query.course as string;
     const academicStatus = req.query.academicStatus as string;
-    const page = parseInt(req.query.page as string || '1', 10);
-    const limit = parseInt(req.query.limit as string || '10', 10);
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = clamp(parsePositiveInt(req.query.limit, 10), 1, 50);
 
     const students = await StudentProfiles.find();
     let enriched = students.map(enrichStudentAcademicDetails).filter(Boolean) as any[];
@@ -1012,7 +1025,7 @@ router.post('/gallery/albums', auth, authorize(['ADMIN']), uploadGallery.single(
       shortDescription: shortDescription || '',
       fullDescription: fullDescription || '',
       category,
-      coverImage: coverFile ? `/uploads/gallery/covers/${coverFile.filename}` : '',
+      coverImage: coverFile ? storedFileReference(coverFile, `/uploads/gallery/covers/${coverFile.filename}`) : '',
       eventDate: eventDate || '',
       venue: venue || '',
       organizedBy: organizedBy || '',
@@ -1093,8 +1106,7 @@ router.put('/gallery/albums/:albumId', auth, authorize(['ADMIN']), uploadGallery
 
     const coverFile = req.file as Express.Multer.File | undefined;
     if (coverFile && album.coverImage) {
-      const oldPath = path.join(process.cwd(), album.coverImage.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      await deleteStoredFile(album.coverImage);
     }
 
     await GalleryAlbums.findByIdAndUpdate(req.params.albumId, {
@@ -1108,7 +1120,7 @@ router.put('/gallery/albums/:albumId', auth, authorize(['ADMIN']), uploadGallery
       organizedBy: organizedBy !== undefined ? organizedBy : album.organizedBy,
       isFeatured: isFeatured !== undefined ? (isFeatured === true || isFeatured === 'true') : album.isFeatured,
       isPublished: isPublished !== undefined ? (isPublished === true || isPublished === 'true') : album.isPublished,
-      coverImage: coverFile ? `/uploads/gallery/covers/${coverFile.filename}` : (coverImage !== undefined ? coverImage : album.coverImage),
+      coverImage: coverFile ? storedFileReference(coverFile, `/uploads/gallery/covers/${coverFile.filename}`) : (coverImage !== undefined ? coverImage : album.coverImage),
       updatedAt: new Date().toISOString()
     });
 
@@ -1135,10 +1147,7 @@ router.delete('/gallery/albums/:albumId', auth, authorize(['ADMIN']), async (req
     // Delete all images in album
     const images = await GalleryImages.find({ albumId: album._id });
     for (const image of images) {
-      const filePath = path.join(process.cwd(), image.imageUrl.replace(/^\//, ''));
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      await deleteStoredFile(image.imageUrl);
       await GalleryImages.deleteOne({ _id: image._id });
     }
 
@@ -1174,7 +1183,7 @@ router.post('/gallery/albums/:albumId/images', auth, authorize(['ADMIN']), uploa
     const createdImages = [];
     for (const file of files) {
       maxOrder += 1;
-      const imageUrl = `/uploads/gallery/images/${file.filename}`;
+      const imageUrl = storedFileReference(file, `/uploads/gallery/images/${file.filename}`);
       const img = await GalleryImages.create({
         albumId: album._id!,
         imageUrl,
@@ -1243,10 +1252,7 @@ router.delete('/gallery/images/:imageId', auth, authorize(['ADMIN']), async (req
       return res.status(404).json({ success: false, message: 'Image not found.' });
     }
 
-    const filePath = path.join(process.cwd(), image.imageUrl.replace(/^\//, ''));
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    await deleteStoredFile(image.imageUrl);
 
     await GalleryImages.deleteOne({ _id: req.params.imageId });
 
@@ -1286,9 +1292,11 @@ router.post('/achievements', auth, authorize(['ADMIN']), uploadAchievementFiles.
 
     if (files && files['image'] && files['image'][0]) {
       imagePath = `/uploads/achievements/images/${files['image'][0].filename}`;
+      imagePath = storedFileReference(files['image'][0], imagePath);
     }
     if (files && files['certificate'] && files['certificate'][0]) {
       certPath = `/uploads/achievements/certificates/${files['certificate'][0].filename}`;
+      certPath = storedFileReference(files['certificate'][0], certPath);
     }
 
     const newAch = await Achievements.create({
@@ -1392,19 +1400,19 @@ router.put('/achievements/:achievementId', auth, authorize(['ADMIN']), uploadAch
     if (files && files['image'] && files['image'][0]) {
       // Unlink old image if any
       if (ach.image) {
-        const oldPath = path.join(process.cwd(), ach.image.replace(/^\//, ''));
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        await deleteStoredFile(ach.image);
       }
       imagePath = `/uploads/achievements/images/${files['image'][0].filename}`;
+      imagePath = storedFileReference(files['image'][0], imagePath);
     }
 
     if (files && files['certificate'] && files['certificate'][0]) {
       // Unlink old cert if any
       if (ach.certificate) {
-        const oldPath = path.join(process.cwd(), ach.certificate.replace(/^\//, ''));
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        await deleteStoredFile(ach.certificate);
       }
       certPath = `/uploads/achievements/certificates/${files['certificate'][0].filename}`;
+      certPath = storedFileReference(files['certificate'][0], certPath);
     }
 
     await Achievements.findByIdAndUpdate(req.params.achievementId, {
@@ -1447,12 +1455,10 @@ router.delete('/achievements/:achievementId', auth, authorize(['ADMIN']), async 
 
     // Delete files
     if (ach.image) {
-      const filePath = path.join(process.cwd(), ach.image.replace(/^\//, ''));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await deleteStoredFile(ach.image);
     }
     if (ach.certificate) {
-      const filePath = path.join(process.cwd(), ach.certificate.replace(/^\//, ''));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await deleteStoredFile(ach.certificate);
     }
 
     await Achievements.deleteOne({ _id: req.params.achievementId });
@@ -1907,7 +1913,7 @@ router.post('/workshops', auth, authorize(['ADMIN']), uploadWorkshopPoster.singl
         slug,
         startDateTime: new Date(data.startDateTime),
         endDateTime: new Date(data.endDateTime),
-        posterImage: req.file ? `/uploads/gallery/images/${req.file.filename}` : data.posterImage || null,
+        posterImage: req.file ? storedFileReference(req.file, `/uploads/gallery/images/${req.file.filename}`) : data.posterImage || null,
         registrationUrl: data.registrationUrl || null,
         targetAudience: data.targetAudience || null,
         maximumParticipants: data.maximumParticipants || null,
@@ -1941,7 +1947,7 @@ router.put('/workshops/:workshopId', auth, authorize(['ADMIN']), uploadWorkshopP
         ...data,
         startDateTime: new Date(data.startDateTime),
         endDateTime: new Date(data.endDateTime),
-        posterImage: req.file ? `/uploads/gallery/images/${req.file.filename}` : data.posterImage || existing.posterImage,
+        posterImage: req.file ? storedFileReference(req.file, `/uploads/gallery/images/${req.file.filename}`) : data.posterImage || existing.posterImage,
         registrationUrl: data.registrationUrl || null,
         targetAudience: data.targetAudience || null,
         maximumParticipants: data.maximumParticipants || null,
@@ -2336,10 +2342,11 @@ router.get('/report-documents/:documentId/download', auth, authorize(['ADMIN']),
     const document = documents.find((item: any) => item.id === req.params.documentId);
     if (!document?.fileNameOnDisk) return res.status(404).json({ success: false, message: 'Report document not found.' });
 
-    const filePath = path.join(process.cwd(), 'uploads', 'private', 'reports', path.basename(String(document.fileNameOnDisk)));
-    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'Report file is unavailable.' });
-
-    return res.download(filePath, String(document.fileName || 'report.pdf'));
+    await sendPrivateStoredFile(res, `/private/reports/${path.basename(String(document.fileNameOnDisk))}`, {
+      downloadName: String(document.fileName || 'report.pdf'),
+      localRoot: path.join(process.cwd(), 'uploads', 'private', 'reports'),
+    });
+    return;
   } catch (error) {
     next(error);
   }
@@ -2360,7 +2367,7 @@ router.delete('/report-documents/:documentId', auth, authorize(['ADMIN']), async
 
     if (document.fileNameOnDisk) {
       const fileName = path.basename(String(document.fileNameOnDisk));
-      fs.rmSync(path.join(process.cwd(), 'uploads', 'private', 'reports', fileName), { force: true });
+      await deleteStoredFile(`/private/reports/${fileName}`);
     }
 
     return res.json({ success: true, message: 'Report document removed.' });

@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../config/prisma.js';
-import { uploadAnonymousConcernAttachment } from '../middleware/upload.js';
+import { storedFileReference, uploadAnonymousConcernAttachment } from '../middleware/upload.js';
 import { baselineSafetyGuides, officialEmergencyResources } from '../data/verifiedSafetyResources.js';
 import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -118,7 +118,7 @@ router.post('/anonymous-concerns', uploadAnonymousConcernAttachment.single('atta
         description: data.description,
         incidentDate: data.incidentDate ? new Date(`${data.incidentDate}T00:00:00.000Z`) : null,
         location: data.location || null,
-        attachmentUrl: req.file ? `/private/anonymous-concerns/${req.file.filename}` : null,
+        attachmentUrl: req.file ? storedFileReference(req.file, `/private/anonymous-concerns/${req.file.filename}`) : null,
       },
     });
     return res.status(201).json({
