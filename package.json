@@ -44,7 +44,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "db:setup": "npm run prisma:generate && prisma migrate dev && npm run seed"
+    "db:setup": "npm run prisma:generate && prisma migrate dev && npm run seed",
+    "provision:wec-logins": "tsx scripts/provision-womens-cell-logins.ts",
+    "verify:wec-logins": "tsx scripts/verify-womens-cell-logins.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

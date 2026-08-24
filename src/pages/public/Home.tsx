@@ -13,7 +13,7 @@ import {
   Star,
 } from 'lucide-react';
 
-import api, { resolveUploadUrl } from '../../utils/api.js';
+import api from '../../utils/api.js';
 import { PageWrapper } from '../../components/common/PageWrapper.js';
 import {
   PortalHero,
@@ -21,7 +21,10 @@ import {
 } from '../../components/common/ReferenceChrome.js';
 import { mobilePageHeroImages, pageHeroImages } from '../../utils/pageHeroImages.js';
 
-import fallbackProfile from '../../assets/images/placeholders/default-profile.webp';
+import {
+  getMemberPhoto,
+  memberFallbackPhoto,
+} from '../../utils/memberDirectory.js';
 
 export const Home: React.FC = () => {
   const [featuredSchemes, setFeaturedSchemes] = useState<any[]>([]);
@@ -29,53 +32,62 @@ export const Home: React.FC = () => {
   const [emergencyResources, setEmergencyResources] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchHomeData = async () => {
-      try {
-        const [schemesRes, membersRes, emergencyRes] =
-          await Promise.allSettled([
-            api.get('/public/schemes'),
-            api.get('/public/members'),
-            api.get('/safety/resources'),
-          ]);
+    let active = true;
 
-        if (
-          schemesRes.status === 'fulfilled' &&
-          schemesRes.value.data?.success
-        ) {
-          const schemeData = Array.isArray(schemesRes.value.data.data)
-            ? schemesRes.value.data.data
-            : [];
+    const loadSchemes = api
+      .get('/public/schemes')
+      .then((response) => {
+        if (!active || !response.data?.success) return;
 
-          setFeaturedSchemes(schemeData.slice(0, 4));
-        }
+        const schemeData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
 
-        if (
-          membersRes.status === 'fulfilled' &&
-          membersRes.value.data?.success
-        ) {
-          const memberData = Array.isArray(membersRes.value.data.data)
-            ? membersRes.value.data.data
-            : [];
+        setFeaturedSchemes(schemeData.slice(0, 4));
+      })
+      .catch((error) => {
+        console.error('Unable to load home page schemes:', error);
+      });
 
-          setMembers(memberData.slice(0, 3));
-        }
+    const loadMembers = api
+      .get('/public/members')
+      .then((response) => {
+        if (!active || !response.data?.success) return;
 
-        if (
-          emergencyRes.status === 'fulfilled' &&
-          emergencyRes.value.data?.success
-        ) {
-          const emergencyData = Array.isArray(emergencyRes.value.data.data)
-            ? emergencyRes.value.data.data
-            : [];
+        const memberData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
 
-          setEmergencyResources(emergencyData.slice(0, 5));
-        }
-      } catch (error) {
-        console.error('Error fetching home page data:', error);
-      }
+        setMembers(memberData.slice(0, 3));
+      })
+      .catch((error) => {
+        console.error('Unable to load home page members:', error);
+      });
+
+    const loadEmergencyResources = api
+      .get('/safety/resources')
+      .then((response) => {
+        if (!active || !response.data?.success) return;
+
+        const emergencyData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+
+        setEmergencyResources(emergencyData.slice(0, 5));
+      })
+      .catch((error) => {
+        console.error('Unable to load home page safety resources:', error);
+      });
+
+    void Promise.allSettled([
+      loadSchemes,
+      loadMembers,
+      loadEmergencyResources,
+    ]);
+
+    return () => {
+      active = false;
     };
-
-    void fetchHomeData();
   }, []);
 
   const emergencyContacts =
@@ -605,8 +617,7 @@ mobileImagePosition="54% center"
 /* ========================================================================== */
 
 const MiniMember: React.FC<{ member: any }> = ({ member }) => {
-  const imageUrl =
-    resolveUploadUrl(member?.profileImage) || fallbackProfile;
+  const imageUrl = getMemberPhoto(member);
 
   const role =
     member?.clubRole ||
@@ -622,8 +633,13 @@ const MiniMember: React.FC<{ member: any }> = ({ member }) => {
       <img
         src={imageUrl}
         alt={member?.name || 'Singa Pen member'}
+        width={72}
+        height={72}
+        loading="lazy"
+        decoding="async"
         onError={(event) => {
-          event.currentTarget.src = fallbackProfile;
+          event.currentTarget.onerror = null;
+          event.currentTarget.src = memberFallbackPhoto;
         }}
         className="h-16 w-16 rounded-xl border border-[#e4eaff] object-cover object-center shadow-sm sm:h-[72px] sm:w-[72px]"
       />

@@ -1,4 +1,4 @@
-# Dependencies
+ Dependencies
 node_modules/
 node_modules/.prisma/
 
@@ -77,3 +77,7 @@ Thumbs.db
 
 .vercel
 .env*
+
+# Local account provisioning credentials
+.secure/
+womens-cell-login-credentials.json
