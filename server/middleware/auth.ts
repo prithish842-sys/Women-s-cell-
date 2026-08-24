@@ -7,16 +7,29 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function getJwtSecret() {
-  if (!process.env.JWT_SECRET) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
     throw new Error('JWT_SECRET is required.');
   }
-  return process.env.JWT_SECRET;
+  const weakSecrets = new Set(['secret', 'changeme', 'change_me', 'development-secret', 'dev-secret', '123456', 'password']);
+  if (process.env.NODE_ENV === 'production' && (secret.length < 32 || weakSecrets.has(secret.trim().toLowerCase()))) {
+    throw new Error('A strong JWT_SECRET of at least 32 characters is required in production.');
+  }
+  return secret;
 }
 
 export function sanitizeUser(user: User) {
   const safeUser = { ...user } as any;
   delete safeUser.passwordHash;
   return safeUser;
+}
+
+function redactErrorForLog(error: any) {
+  const message = error instanceof Error ? error.message : String(error || 'Unknown error');
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/g, 'Bearer [REDACTED]')
+    .replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, 'postgresql://[REDACTED]')
+    .replace(/(AI_|GEMINI_|OPENAI_|JWT_|DATABASE_)[A-Z0-9_]*=([^\s]+)/gi, '$1[REDACTED]');
 }
 
 export function auth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -50,7 +63,7 @@ export function auth(req: AuthenticatedRequest, res: Response, next: NextFunctio
       req.user = user;
       next();
     }).catch((err) => {
-      console.error('Error fetching user in auth middleware:', err);
+      console.error('Error fetching user in auth middleware:', process.env.NODE_ENV === 'production' ? redactErrorForLog(err) : err);
       return res.status(500).json({
         success: false,
         message: 'Internal server error during authentication.',
@@ -89,16 +102,18 @@ export function errorMiddleware(err: any, req: Request, res: Response, next: Nex
   if (process.env.NODE_ENV !== 'production') {
     console.error('API Error: ', err);
   } else {
-    console.error('API Error: ', err.message);
+    console.error('API Error: ', redactErrorForLog(err));
   }
 
   const status = err.status || err.statusCode || 500;
-  const message = err.message || 'An unexpected error occurred on the server';
+  const message = process.env.NODE_ENV === 'production' && status >= 500
+    ? 'An unexpected error occurred on the server'
+    : err.message || 'An unexpected error occurred on the server';
 
   res.status(status).json({
     success: false,
     message,
-    errors: err.errors || [],
+    errors: process.env.NODE_ENV === 'production' && status >= 500 ? [] : err.errors || [],
     ...(process.env.NODE_ENV !== 'production' && err.stack ? { stack: err.stack } : {}),
   });
 }

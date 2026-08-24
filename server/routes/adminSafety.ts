@@ -6,6 +6,14 @@ import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 const router = Router();
 
 const list = z.array(z.string().max(500)).max(20).default([]);
+const httpUrl = (message = 'URL must start with http:// or https://') =>
+  z.string().trim().url(message).refine((value) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, message);
 const SafetyGuideSchema = z.object({
   slug: z.string().min(3).max(120).regex(/^[a-z0-9-]+$/),
   title: z.string().min(3).max(160),
@@ -31,7 +39,7 @@ const EmergencyResourceSchema = z.object({
   alternatePhone: z.string().max(30).optional().nullable(),
   email: z.string().email().optional().nullable().or(z.literal('')),
   address: z.string().max(500).optional().nullable(),
-  website: z.string().url().optional().nullable().or(z.literal('')),
+  website: httpUrl('Website must start with http:// or https://').optional().nullable().or(z.literal('')),
   category: z.enum(['EMERGENCY', 'WOMEN_SUPPORT', 'POLICE', 'CYBER_CRIME', 'CHILD_PROTECTION', 'COLLEGE_SUPPORT', 'MEDICAL_SUPPORT', 'COUNSELLING_SUPPORT']),
   isEmergency: z.coerce.boolean().default(false),
   isOfficial: z.coerce.boolean().default(false),

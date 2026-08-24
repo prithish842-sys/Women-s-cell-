@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const httpUrl = (message = 'URL must start with http:// or https://') =>
+  z.string().trim().url(message).refine((value) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, message);
+
 export const StudentRegisterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address').endsWith('@college.edu', 'Must be a valid college email ending with @college.edu').or(z.string().email('Invalid email address')), // Fallback to general email if needed, but validate properly
@@ -57,8 +66,8 @@ export const SkillSchema = z.object({
   yearsOfExperience: z.number().min(0, 'Experience cannot be negative'),
   description: z.string().max(300, 'Description cannot exceed 300 characters').optional().nullable(),
   tools: z.array(z.string()).optional(),
-  portfolioUrl: z.string().url('Invalid portfolio URL').or(z.string().length(0)).optional().nullable(),
-  certificateUrl: z.string().url('Invalid certificate URL').or(z.string().length(0)).optional().nullable(),
+  portfolioUrl: httpUrl('Portfolio URL must start with http:// or https://').or(z.string().length(0)).optional().nullable(),
+  certificateUrl: httpUrl('Certificate URL must start with http:// or https://').or(z.string().length(0)).optional().nullable(),
   isPrimary: z.boolean(),
 });
 
@@ -82,7 +91,7 @@ export const GovernmentSchemeSchema = z.object({
   benefits: z.string().min(5, 'Benefits description is required'),
   requiredDocuments: z.array(z.string()).min(1, 'At least one required document is required'),
   applicationProcess: z.string().min(10, 'Application process description is required'),
-  officialUrl: z.string().url('Invalid official website URL'),
+  officialUrl: httpUrl('Official website URL must start with http:// or https://'),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be YYYY-MM-DD'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be YYYY-MM-DD'),
   contactInformation: z.string().optional().nullable(),
@@ -153,7 +162,7 @@ export const WorkshopSchema = z.object({
   organizer: z.string().min(2).max(180),
   targetAudience: z.string().max(250).optional().nullable(),
   posterImage: z.string().max(500).optional().nullable(),
-  registrationUrl: z.string().url().or(z.string().length(0)).optional().nullable(),
+  registrationUrl: httpUrl('Registration URL must start with http:// or https://').or(z.string().length(0)).optional().nullable(),
   maximumParticipants: z.number().int().min(1).max(5000).optional().nullable(),
   isFeatured: z.boolean().optional(),
   isPublished: z.boolean().optional(),
@@ -183,7 +192,7 @@ export const WorkshopParticipationAdminSchema = z.object({
 });
 
 export const WorkshopCertificateSchema = z.object({
-  certificateUrl: z.string().url('Certificate URL must be valid.').or(z.string().length(0)).optional().nullable(),
+  certificateUrl: httpUrl('Certificate URL must start with http:// or https://').or(z.string().length(0)).optional().nullable(),
   action: z.enum(['ISSUE', 'REVOKE']).default('ISSUE'),
 });
 
@@ -195,7 +204,7 @@ export const JobOpportunitySchema = z.object({
   description: z.string().trim().min(10).max(4000),
   eligibility: z.string().trim().min(3).max(2000),
   requiredSkills: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
-  officialUrl: z.string().trim().url('Official application link must be valid.'),
+  officialUrl: httpUrl('Official application link must start with http:// or https://'),
   applicationDeadline: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().nullable(),
   isFeatured: z.boolean().default(false),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).default('DRAFT'),

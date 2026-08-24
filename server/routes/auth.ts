@@ -8,6 +8,7 @@ import { auth, AuthenticatedRequest, getJwtSecret, sanitizeUser } from '../middl
 const router = Router();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const INVALID_LOGIN_MESSAGE = 'Invalid identifier or password.';
+const REGISTRATION_CONFLICT_MESSAGE = 'Registration could not be completed with the provided details.';
 
 // Student Registration
 router.post('/student/register', async (req, res, next) => {
@@ -43,7 +44,7 @@ router.post('/student/register', async (req, res, next) => {
     if (existingEmail) {
       return res.status(400).json({
         success: false,
-        message: 'An account with this email already exists.'
+        message: REGISTRATION_CONFLICT_MESSAGE
       });
     }
 
@@ -52,7 +53,7 @@ router.post('/student/register', async (req, res, next) => {
     if (existingReg) {
       return res.status(400).json({
         success: false,
-        message: 'A student with this register number already exists.'
+        message: REGISTRATION_CONFLICT_MESSAGE
       });
     }
 

@@ -248,24 +248,22 @@ export const Register: React.FC = () => {
     };
 
     try {
-      const result =
+      const res =
         await registerStudent(
           registerPayload,
         );
 
-      if (result.success) {
+      if (res.success) {
         setWelcomeName(name.trim());
 
-        setRegistrationState(
-          'SUCCESS_ANIMATION',
-        );
+        setRegistrationState('SUCCESS_ANIMATION');
       } else {
         setRegistrationState(
           'ERROR',
         );
 
         setErrorMsg(
-          result.message,
+          res.message,
         );
       }
     } catch (error) {
@@ -291,12 +289,7 @@ export const Register: React.FC = () => {
       'REDIRECTING',
     );
 
-    navigate(
-      '/student/dashboard',
-      {
-        replace: true,
-      },
-    );
+    navigate('/student/dashboard', { replace: true });
   };
 
   return (

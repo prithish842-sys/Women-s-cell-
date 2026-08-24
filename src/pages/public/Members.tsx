@@ -162,9 +162,7 @@ export const Members: React.FC = () => {
         event.target as HTMLElement;
 
       if (
-        !target.closest(
-          '[data-singa-member-card="true"]',
-        )
+        !target.closest('[data-singa-member-card="true"]')
       ) {
         setExpandedMemberId(null);
       }
@@ -355,22 +353,15 @@ mobileImagePosition="53% center"
                 </p>
               </div>
             ) : (
-              <div className="grid items-stretch gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-5">
+              <div className="grid items-stretch gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 sm:gap-5">
                 {members.map((member) => (
-                  <CommitteeCard
+                  <AnimatedMemberCard
                     key={member._id}
                     member={member}
-                    expanded={
-                      expandedMemberId ===
-                      member._id
-                    }
+                    expanded={expandedMemberId === member._id}
                     onToggle={() => {
                       setExpandedMemberId(
-                        (currentId) =>
-                          currentId ===
-                          member._id
-                            ? null
-                            : member._id,
+                        (currentId) => currentId === member._id ? null : member._id,
                       );
                     }}
                   />
@@ -557,7 +548,7 @@ mobileImagePosition="53% center"
    COMMITTEE MEMBER CARD
    ========================================================================== */
 
-const CommitteeCard: React.FC<{
+const AnimatedMemberCard: React.FC<{
   member: PublicMember;
   expanded: boolean;
   onToggle: () => void;

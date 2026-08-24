@@ -4,7 +4,7 @@ import { StudentProfileUpdateSchema, SkillSchema, StudentRoleUpdateSchema, Works
 import { auth, authorize, AuthenticatedRequest } from '../middleware/auth.js';
 import { enrichStudentAcademicDetails, getCurrentAcademicYear } from '../utils/academic.js';
 import { enrichSchemeDetails } from '../utils/scheme.js';
-import { uploadProfile, uploadSkillCertificate } from '../middleware/upload.js';
+import { storedFileReference, uploadProfile, uploadSkillCertificate } from '../middleware/upload.js';
 import { prisma } from '../config/prisma.js';
 import { getStudentProgress } from '../utils/progress.js';
 import { serializeWorkshop } from '../utils/workshops.js';
@@ -161,7 +161,7 @@ router.put(
         });
       }
 
-      const dashboardHeroImage = `/uploads/profiles/${file.filename}`;
+      const dashboardHeroImage = storedFileReference(file, `/uploads/profiles/${file.filename}`);
 
       const updatedProfile = await StudentProfiles.findByIdAndUpdate(
         profile._id!,
@@ -494,7 +494,7 @@ router.post('/me/skills', auth, uploadSkillCertificate.single('certificate'), as
       description: skillData.description || '',
       tools: skillData.tools || [],
       portfolioUrl: skillData.portfolioUrl || '',
-      certificateUrl: req.file ? `/uploads/skills/${req.file.filename}` : (skillData.certificateUrl || ''),
+      certificateUrl: req.file ? storedFileReference(req.file, `/uploads/skills/${req.file.filename}`) : (skillData.certificateUrl || ''),
       isPrimary: skillData.isPrimary
     });
 
@@ -543,7 +543,7 @@ router.put('/me/skills/:skillId', auth, uploadSkillCertificate.single('certifica
         description: skillData.description || '',
         tools: skillData.tools || [],
         portfolioUrl: skillData.portfolioUrl || '',
-        certificateUrl: req.file ? `/uploads/skills/${req.file.filename}` : (skillData.certificateUrl || ''),
+        certificateUrl: req.file ? storedFileReference(req.file, `/uploads/skills/${req.file.filename}`) : (skillData.certificateUrl || ''),
         isPrimary: skillData.isPrimary
       }
     });
