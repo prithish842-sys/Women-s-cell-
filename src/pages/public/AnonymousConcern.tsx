@@ -17,7 +17,10 @@ export const AnonymousConcern: React.FC = () => {
     setReference('');
     try {
       const payload = new FormData();
-      Object.entries(form).forEach(([key, value]) => payload.append(key, value));
+      Object.entries(form).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        payload.append(key, String(value));
+      });
       if (file) payload.append('attachment', file);
       const res = await api.post('/safety/anonymous-concerns', payload);
       setReference(res.data.data.referenceNumber);

@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 type PageHeroProps = {
   image: string;
   alt: string;
@@ -21,7 +23,7 @@ export function PageHero({
           {
             "--mobile-position": mobilePosition,
             "--desktop-position": desktopPosition,
-          } as React.CSSProperties
+          } as CSSProperties
         }
       />
     </section>

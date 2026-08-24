@@ -1,0 +1,27 @@
+node_modules/
+.mongodb-data/
+
+dist/
+dist-server/
+
+.codex-screenshots/
+.codex-member-recording-frames/
+.codex-member-recording-frames-125959/
+.codex-video-frames/
+.codex-video-frames-122224/
+.codex-gallery-video-130122/
+
+page images/
+events and gallery/
+
+uploads/
+
+*.zip
+*.log
+
+.env
+.env.*
+!.env.example
+
+.git/
+.vscode/
