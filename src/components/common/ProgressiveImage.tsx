@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { assignImageFallback, withResolvedImage } from '../../utils/imageFallback.js';
 
 type ProgressiveImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
@@ -22,11 +22,19 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   decoding = 'async',
   ...props
 }) => {
+  const imageRef = useRef<HTMLImageElement | null>(null);
   const [loaded, setLoaded] = useState(false);
   const resolvedSrc = resolveSrc ? withResolvedImage(src, fallbackSrc) : (src || fallbackSrc);
 
   useEffect(() => {
+    const image = imageRef.current;
     setLoaded(false);
+    if (!image) return;
+
+    delete image.dataset.fallbackApplied;
+    if (image.complete && image.naturalWidth > 0) {
+      setLoaded(true);
+    }
   }, [resolvedSrc]);
 
   return (
@@ -34,12 +42,15 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
       <span className="progressive-image__placeholder" aria-hidden="true" />
       <img
         {...props}
+        ref={imageRef}
         src={resolvedSrc}
         alt={alt}
         loading={loading}
         decoding={decoding}
         onLoad={(event) => {
-          setLoaded(true);
+          if (event.currentTarget.naturalWidth > 0) {
+            setLoaded(true);
+          }
           onLoad?.(event);
         }}
         onError={(event) => {
