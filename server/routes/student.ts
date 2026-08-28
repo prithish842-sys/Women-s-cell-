@@ -90,7 +90,18 @@ router.put('/me', auth, async (req: AuthenticatedRequest, res: Response, next) =
       });
     }
 
-    const { name, phone, bio, department, course, entrepreneurship, availability } = parseResult.data;
+    const { 
+      name, 
+      phone, 
+      bio, 
+      department, 
+      course, 
+      entrepreneurship, 
+      availability,
+      emergencyContactName,
+      emergencyContactRelationship,
+      emergencyContactPhone
+    } = parseResult.data;
 
     // Update name on User collection
     await Users.findByIdAndUpdate(req.user!._id!, { name });
@@ -108,7 +119,10 @@ router.put('/me', auth, async (req: AuthenticatedRequest, res: Response, next) =
         department,
         course,
         entrepreneurship: entrepreneurship || profile.entrepreneurship,
-        availability: availability || profile.availability
+        availability: availability || profile.availability,
+        emergencyContactName: emergencyContactName || '',
+        emergencyContactRelationship: emergencyContactRelationship || '',
+        emergencyContactPhone: emergencyContactPhone || ''
       }
     });
 

@@ -51,19 +51,55 @@ export const SchemeCardSkeleton: React.FC = () => (
 );
 
 export const MemberCardSkeleton: React.FC = () => (
-  <div className="min-h-[390px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-hidden="true">
-    <div className="flex items-center gap-3">
-      <Skeleton className="h-16 w-16 rounded-full bg-rose-100" />
-      <div className="min-w-0 flex-1">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="mt-2 h-3 w-1/2" />
-      </div>
+  <div className="min-h-[318px] rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4" aria-hidden="true">
+    <Skeleton className="h-[118px] w-[96px] rounded-xl bg-rose-100 sm:h-44 sm:w-full" />
+    <div className="mt-4 space-y-2">
+      <Skeleton className="h-5 w-4/5" />
+      <Skeleton className="h-3 w-3/5" />
+      <Skeleton className="h-3 w-2/3" />
     </div>
-    <Skeleton className="mt-6 h-44 w-full rounded-lg bg-gray-100" />
-    <div className="mt-5 space-y-2">
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-10/12" />
-      <Skeleton className="h-3 w-7/12" />
+    <div className="mt-5 flex items-center justify-between">
+      <Skeleton className="h-7 w-24 rounded-full bg-rose-100" />
+      <Skeleton className="h-4 w-20" />
+    </div>
+  </div>
+);
+
+export const DetailPageSkeleton: React.FC = () => (
+  <div className="mx-auto max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8" aria-busy="true" aria-label="Loading profile details">
+    <Skeleton className="h-5 w-44" />
+    <section className="overflow-hidden rounded-2xl border border-[#dfe7f6] bg-white shadow-sm">
+      <div className="bg-[#102b72] p-6 sm:p-8">
+        <div className="flex flex-col items-center gap-5 sm:flex-row">
+          <Skeleton className="h-[190px] w-[150px] rounded-xl bg-white/20 sm:h-48 sm:w-48" />
+          <div className="w-full flex-1 space-y-3">
+            <Skeleton className="mx-auto h-7 w-36 bg-white/20 sm:mx-0" />
+            <Skeleton className="mx-auto h-10 w-64 max-w-full bg-white/20 sm:mx-0" />
+            <Skeleton className="mx-auto h-4 w-72 max-w-full bg-white/20 sm:mx-0" />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-5 p-5 sm:p-8">
+        <Skeleton className="h-4 w-36 bg-rose-100" />
+        <Skeleton className="h-20 w-full" />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+        </div>
+      </div>
+    </section>
+  </div>
+);
+
+export const AchievementCardSkeleton: React.FC = () => (
+  <div className="rounded-2xl border border-matte-beige bg-white p-5 shadow-sm" aria-hidden="true">
+    <Skeleton className="h-5 w-28 bg-rose-100" />
+    <Skeleton className="mt-4 h-5 w-4/5" />
+    <Skeleton className="mt-3 h-16 w-full" />
+    <div className="mt-5 border-t border-gray-100 pt-4">
+      <Skeleton className="h-4 w-36" />
+      <Skeleton className="mt-3 h-8 w-24" />
     </div>
   </div>
 );

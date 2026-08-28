@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext.js';
+import { useAuth } from './contexts/AuthContext.js';
 import { LanguageProvider } from './contexts/LanguageContext.js';
 import { PublicLayout, ProtectedRoute, RoleRoute, DashboardLayout } from './components/common/Layouts.js';
 import { ScrollToTop } from './components/common/ScrollToTop.js';
@@ -101,17 +102,17 @@ const NotFound: React.FC = () => (
 );
 
 const InitialWebsiteLoader: React.FC = () => (
-  <div className="fixed inset-0 z-100 flex items-center justify-center bg-cream-50 text-maroon-700">
-    <div className="flex flex-col items-center gap-4 px-6 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-full border border-rose-100 bg-white font-serif text-xl font-bold shadow-md">
-        SP
+  <div className="singa-app-loader" role="status" aria-live="polite" aria-label="Singa Pen Portal is loading">
+    <div className="singa-app-loader__card">
+      <div className="singa-app-loader__mark" aria-hidden="true">
+        <span>SP</span>
       </div>
-      <div className="space-y-1">
-        <p className="font-serif text-xl font-bold">Singa Pen Portal</p>
-        <p className="text-xs font-semibold uppercase text-gray-500">Women's Empowerment Cell Hub</p>
+      <div>
+        <p className="singa-app-loader__title">SINGA PEN</p>
+        <p className="singa-app-loader__copy">Women Empowerment Cell Portal</p>
       </div>
-      <div className="h-1 w-40 overflow-hidden rounded-full bg-rose-100">
-        <div className="h-full w-1/2 animate-pulse rounded-full bg-maroon-700" />
+      <div className="singa-app-loader__line" aria-hidden="true">
+        <span />
       </div>
     </div>
   </div>
@@ -130,28 +131,36 @@ const RouteFallback: React.FC = () => (
   </div>
 );
 
-// Main App Router Tree
-export default function App() {
-  const [showInitialLoader, setShowInitialLoader] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.sessionStorage.getItem('singa-pen-loader-seen') !== 'true';
-  });
+const MIN_INITIAL_LOADER_MS = 520;
+const LOADER_FADE_MS = 240;
+
+const AppRouter: React.FC = () => {
+  const { loading: authLoading } = useAuth();
+  const [minimumElapsed, setMinimumElapsed] = useState(false);
+  const [loaderMounted, setLoaderMounted] = useState(true);
+  const [loaderExiting, setLoaderExiting] = useState(false);
 
   useEffect(() => {
-    if (!showInitialLoader) return;
-    const timer = window.setTimeout(() => {
-      window.sessionStorage.setItem('singa-pen-loader-seen', 'true');
-      setShowInitialLoader(false);
-    }, 900);
+    const timer = window.setTimeout(() => setMinimumElapsed(true), MIN_INITIAL_LOADER_MS);
     return () => window.clearTimeout(timer);
-  }, [showInitialLoader]);
+  }, []);
+
+  useEffect(() => {
+    if (!minimumElapsed || authLoading || loaderExiting) return;
+    setLoaderExiting(true);
+    const timer = window.setTimeout(() => setLoaderMounted(false), LOADER_FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [authLoading, loaderExiting, minimumElapsed]);
 
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <NetworkStatus />
-        {showInitialLoader && <InitialWebsiteLoader />}
-        <BrowserRouter>
+    <>
+      <NetworkStatus />
+      {loaderMounted && (
+        <div className={loaderExiting ? 'singa-app-loader-exit' : ''}>
+          <InitialWebsiteLoader />
+        </div>
+      )}
+      <BrowserRouter>
         <ScrollToTop />
         <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -257,7 +266,17 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
-        </BrowserRouter>
+      </BrowserRouter>
+    </>
+  );
+};
+
+// Main App Router Tree
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <AppRouter />
       </AuthProvider>
     </LanguageProvider>
   );

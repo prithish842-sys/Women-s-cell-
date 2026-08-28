@@ -42,12 +42,17 @@ const Header: React.FC = () => {
     <header className="sticky top-0 z-40 border-b border-[#dbe5f5] bg-white">
       <div className="reference-container flex h-[56px] items-center justify-between gap-4">
         <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Singa Pen Portal home">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-[linear-gradient(135deg,#0b63ff,#7b2cff_52%,#ed1472)] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(30,80,210,0.25)]">
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-[linear-gradient(135deg,#0b63ff,#7b2cff_52%,#ed1472)] text-[14px] font-black text-white shadow-[0_8px_18px_rgba(30,80,210,0.25)]">
             SP
           </span>
-          <span className="text-[1.3rem] font-black leading-none tracking-[-0.02em] text-[#06123a]">
-            Singa Pen <span className="font-semibold text-[#0b63ff]">Portal</span>
-          </span>
+          <div className="flex flex-col">
+            <span className="text-[1.3rem] font-black leading-none tracking-[-0.02em] text-[#06123a]">
+              Singa Pen <span className="font-semibold text-[#0b63ff]">Portal</span>
+            </span>
+            <span className="text-[0.65rem] font-bold text-[#5c6d8a] uppercase tracking-wider mt-1">
+              Sankara College of Science and Commerce
+            </span>
+          </div>
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">

@@ -12,6 +12,7 @@ import {
   StudentRegisterSchema,
   LoginSchema,
   ChangePasswordSchema,
+  FacultyAccountSchema,
 } from '../schemas/validation.js';
 
 import {
@@ -178,6 +179,100 @@ router.post('/student/register', async (req, res, next) => {
         user: safeUser,
         profile,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// Staff Registration
+// ============================================================
+
+router.post('/staff-register', async (req, res, next) => {
+  try {
+    const parseResult = FacultyAccountSchema.safeParse(req.body);
+
+    if (!parseResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: parseResult.error.issues.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+
+    const {
+      name,
+      email,
+      staffId,
+      department,
+      designation,
+      phone,
+      password,
+      emergencyContactName,
+      emergencyContactRelationship,
+      emergencyContactPhone,
+    } = parseResult.data;
+
+    const emailLower = email.toLowerCase().trim();
+    const staffIdUpper = staffId.toUpperCase().trim();
+
+    // Check existing email
+    const existingEmail = await Users.findOne({
+      email: emailLower,
+    });
+
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: REGISTRATION_CONFLICT_MESSAGE,
+      });
+    }
+
+    // Check existing staff ID
+    const existingStaff = await FacultyProfiles.findOne({
+      staffId: staffIdUpper,
+    });
+
+    if (existingStaff) {
+      return res.status(400).json({
+        success: false,
+        message: REGISTRATION_CONFLICT_MESSAGE,
+      });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user (inactive pending admin approval)
+    const user = await Users.create({
+      name,
+      email: emailLower,
+      passwordHash,
+      role: 'FACULTY',
+      identifier: staffIdUpper,
+      isActive: false, // Critical for security workflow
+    });
+
+    // Create faculty profile
+    await FacultyProfiles.create({
+      userId: user._id!,
+      staffId: staffIdUpper,
+      department,
+      designation: designation || 'Faculty',
+      phone: phone || '',
+      emergencyContactName: emergencyContactName || '',
+      emergencyContactRelationship: emergencyContactRelationship || '',
+      emergencyContactPhone: emergencyContactPhone || '',
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Staff registered successfully and is pending admin approval.',
+      // No token returned as they are inactive
     });
   } catch (error) {
     next(error);

@@ -79,6 +79,8 @@ export const PortalHero: React.FC<PortalHeroProps> = ({
               className="reference-hero__art"
               src={image || defaultHero}
               alt=""
+              loading="eager"
+              decoding="async"
               style={artStyle}
             />
           </picture>

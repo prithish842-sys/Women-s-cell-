@@ -300,7 +300,7 @@ export const StudentDashboard: React.FC = () => {
       <DailyWellbeingCheckIn compact onSaved={fetchDashboardMetrics} />
 
       <section className="relative overflow-hidden rounded-xl bg-[#06175b] p-6 text-white shadow-[0_20px_45px_rgba(7,20,38,0.16)]">
-        <img src={heroArtwork} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center opacity-55" />
+        <img src={heroArtwork} alt="" aria-hidden="true" loading="eager" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center opacity-55" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,16,62,0.96),rgba(7,20,70,0.76)_48%,rgba(233,22,112,0.44))]" />
         <div className="relative max-w-md">
           <Sparkles className="h-6 w-6 text-[#72e8ef]" />

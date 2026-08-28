@@ -9,7 +9,7 @@ Full-stack React, Express, PostgreSQL, and Prisma portal for the Singa Pen Women
 - PostgreSQL on `localhost:5432`
 - Prisma ORM and Prisma Client
 - JWT authentication and bcrypt password hashing
-- Multer uploads stored on disk under `uploads/`
+- Multer uploads stored on local disk in development, Vercel Blob in production
 - Vitest tests
 
 ## Local URLs
@@ -85,7 +85,7 @@ npm run build
 
 ## Upload Storage
 
-Files are stored on disk, not in PostgreSQL. Runtime uploads are ignored by Git. Public assets may be served from these paths when intentionally published:
+Files are stored outside PostgreSQL. Local development uses disk storage. Vercel production must use Vercel Blob by setting `STORAGE_DRIVER=vercel_blob` and configuring Blob credentials in Vercel environment variables. Runtime uploads are ignored by Git. Public assets may be served from these paths when intentionally published:
 
 ```text
 uploads/profiles
@@ -98,6 +98,37 @@ uploads/thumbnails
 ```
 
 ICC complaint attachments are private runtime data under `uploads/private/icc` and are served only through authenticated, authorized API download routes.
+
+## GitHub And Vercel Deployment
+
+This project is prepared as one GitHub repository named `singa-pen-portal`. Do not split the React/Vite frontend and Express/Prisma backend into separate repositories.
+
+Vercel build settings:
+
+```text
+Build command: npm run build
+Output directory: dist
+API entrypoint: api/index.ts
+```
+
+`api/index.ts` imports the shared Express app from `server.ts` and exports it for Vercel. The Vercel function does not call `app.listen()`. Local development still runs `server.ts` on port `5000` through `npm run dev`.
+
+`vercel.json` keeps `/api/*` and `/uploads/*` on the Express function and sends all other paths to `index.html`, so React Router direct refreshes work without swallowing API requests.
+
+Production environment variables are listed in `.env.production.example`. Configure real values in the Vercel dashboard or with `vercel env add`; never commit real secrets. Use these public frontend values when frontend and API share the same Vercel domain:
+
+```env
+VITE_API_BASE_URL=/api/v1
+VITE_UPLOAD_BASE_URL=
+```
+
+Production database setup:
+
+```powershell
+npm run db:migrate:deploy
+```
+
+This runs `prisma migrate deploy`. Never run `prisma migrate dev`, `prisma migrate reset`, destructive seeds, or force-reset commands against production. Pushing GitHub code does not copy local PostgreSQL rows or uploaded files to production; migrate real initial records deliberately and verify row counts before launch.
 
 ## Security Notes
 

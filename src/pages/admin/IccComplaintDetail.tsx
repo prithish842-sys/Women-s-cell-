@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Save, UserCheck } from 'lucide-react';
 import api from '../../utils/api.js';
+import { AdminSkeletonBlock } from '../../components/admin/AdminUI.js';
 
 interface IccComplaint {
   _id: string;
@@ -117,7 +118,7 @@ export const AdminIccComplaintDetail: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-sm text-gray-500">Loading complaint...</div>;
+  if (loading) return <AdminSkeletonBlock rows={7} />;
   if (!complaint) return <div className="p-8 text-sm text-maroon-700">{error || 'Complaint not found.'}</div>;
 
   return (

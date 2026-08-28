@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../utils/api.js';
 import { ArrowLeft, FileText, CheckCircle, ExternalLink, Calendar, PhoneCall, ShieldAlert, Bookmark } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.js';
+import { DetailPageSkeleton } from '../../components/common/Skeleton.js';
 
 export const SchemeDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -55,12 +56,7 @@ export const SchemeDetail: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-3">
-        <div className="w-12 h-12 border-4 border-maroon-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-sm text-gray-500 font-serif">Unpacking scheme details...</p>
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (error || !scheme) {

@@ -260,6 +260,8 @@ export const FacultySearch: React.FC = () => {
                         src={resolveUploadUrl(st.profileImage) || fallbackProfile}
                         onError={(event) => { event.currentTarget.src = fallbackProfile; }}
                         alt={`${st.name} profile`}
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full rounded-full object-cover"
                       />
                     </div>
@@ -350,6 +352,8 @@ export const FacultySearch: React.FC = () => {
                   src={resolveUploadUrl(selectedStudent.profileImage) || fallbackProfile}
                   onError={(event) => { event.currentTarget.src = fallbackProfile; }}
                   alt={`${selectedStudent.name} profile`}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               </div>

@@ -29,8 +29,8 @@ import { GalleryFolderSkeleton } from '../../components/common/Skeleton.js';
 import {
   assignImageFallback,
   galleryFallbackImage,
-  withResolvedImage,
 } from '../../utils/imageFallback.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 import {
   PortalHero,
@@ -587,14 +587,13 @@ mobileImagePosition="57% center"
                         }
                         className="group block aspect-[1.35/1] overflow-hidden rounded-lg bg-[#e8eef9]"
                       >
-                        <img
-                          src={withResolvedImage(
+                        <ProgressiveImage
+                          src={
                             preview.thumbnailUrl ||
                               preview.imageUrl ||
-                              preview.album
-                                .coverImage,
-                            galleryFallbackImage,
-                          )}
+                              preview.album.coverImage
+                          }
+                          fallbackSrc={galleryFallbackImage}
                           alt={
                             preview.altText ||
                             preview.caption ||
@@ -611,7 +610,8 @@ mobileImagePosition="57% center"
                               galleryFallbackImage,
                             )
                           }
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          wrapperClassName="h-full w-full"
+                          imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       </button>
                     ),
@@ -671,11 +671,9 @@ const AlbumCard: React.FC<{
       className="reference-card group block w-full overflow-hidden text-left transition duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative aspect-[1.42/1] overflow-hidden bg-[#e8eef9]">
-        <img
-          src={withResolvedImage(
-            imageSource,
-            galleryFallbackImage,
-          )}
+        <ProgressiveImage
+          src={imageSource}
+          fallbackSrc={galleryFallbackImage}
           alt={album.title}
           loading="lazy"
           decoding="async"
@@ -685,7 +683,8 @@ const AlbumCard: React.FC<{
               galleryFallbackImage,
             )
           }
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          wrapperClassName="h-full w-full"
+          imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
         <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(3,16,57,0.95))] p-3 text-white">

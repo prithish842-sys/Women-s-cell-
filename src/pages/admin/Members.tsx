@@ -262,7 +262,7 @@ export const AdminMembers: React.FC = () => {
                 <article key={`${member.accountRole}-${member._id}`} className="rounded-2xl border border-[#e3eaf8] bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     {image ? (
-                      <img src={image} alt="" className="h-14 w-14 rounded-xl object-cover" />
+                      <img src={image} alt="" loading="lazy" decoding="async" className="h-14 w-14 rounded-xl object-cover" />
                     ) : (
                       <span className="grid h-14 w-14 place-items-center rounded-xl bg-[#eef3ff] text-lg font-black text-[#2563eb]">
                         {String(member.name || 'M').slice(0, 1)}
