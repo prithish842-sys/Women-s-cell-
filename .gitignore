@@ -1,4 +1,4 @@
- Dependencies
+# Dependencies
 node_modules/
 node_modules/.prisma/
 
@@ -17,6 +17,7 @@ node_modules/.prisma/
 dist/
 dist-server/
 build/
+.vercel/
 
 # Vite/cache
 .vite/
@@ -37,12 +38,16 @@ pnpm-debug.log*
 # Runtime/private local data
 /uploads/
 /uploads/private/
+/public/uploads/private/
 /data/
 .mongodb-data/
+local-*.sql
+*-production-data.sql
+*.dump
+*.sql.gz
 tmp/
 temp/
 *.tmp
-*.dump
 *.bak
 *.db
 *.db-journal
@@ -75,14 +80,6 @@ Thumbs.db
 *-system-updated/
 *-replacement-only/
 
-.vercel
-.env*
-
 # Local account provisioning credentials
 .secure/
 womens-cell-login-credentials.json
-
-.vercel
-.env*
-
-.secure/

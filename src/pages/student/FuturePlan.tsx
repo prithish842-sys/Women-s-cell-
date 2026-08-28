@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api.js';
 import { Briefcase, AlertTriangle, CheckCircle, Save, HelpCircle } from 'lucide-react';
+import { DashboardSkeleton } from '../../components/common/Skeleton.js';
 
 export const StudentFuturePlanView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -72,12 +73,7 @@ export const StudentFuturePlanView: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-xl mx-auto py-12 text-center space-y-3">
-        <div className="w-10 h-10 border-4 border-maroon-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-xs text-gray-500 font-serif">Loading entrepreneurship profile...</p>
-      </div>
-    );
+    return <DashboardSkeleton cards={3} />;
   }
 
   return (

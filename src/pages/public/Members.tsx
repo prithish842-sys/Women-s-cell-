@@ -34,6 +34,7 @@ import {
 } from '../../components/common/ReferenceChrome.js';
 
 import { MemberCardSkeleton } from '../../components/common/Skeleton.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 import { mobilePageHeroImages, pageHeroImages } from '../../utils/pageHeroImages.js';
 
@@ -595,19 +596,15 @@ const AnimatedMemberCard: React.FC<{
             ============================================================= */}
 
         <div className="relative h-[118px] w-[96px] shrink-0 overflow-hidden rounded-xl bg-[#eef3ff] sm:mx-auto sm:h-44 sm:w-full">
-          <img
+          <ProgressiveImage
             src={getMemberPhoto(member)}
+            fallbackSrc={memberFallbackPhoto}
+            resolveSrc={false}
             alt={`${member.name} profile`}
             loading="lazy"
             decoding="async"
-            onError={(event) => {
-              event.currentTarget.onerror =
-                null;
-
-              event.currentTarget.src =
-                memberFallbackPhoto;
-            }}
-            className="h-full w-full object-cover object-[center_20%] transition-transform duration-300 sm:object-top sm:hover:scale-[1.03]"
+            wrapperClassName="h-full w-full"
+            imageClassName="h-full w-full object-cover object-[center_20%] transition-transform duration-300 sm:object-top sm:hover:scale-[1.03]"
           />
         </div>
 

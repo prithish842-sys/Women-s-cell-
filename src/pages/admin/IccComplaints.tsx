@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import api from '../../utils/api.js';
+import { AdminSkeletonBlock } from '../../components/admin/AdminUI.js';
 
 interface IccComplaintRow {
   _id: string;
@@ -70,7 +71,7 @@ export const AdminIccComplaints: React.FC = () => {
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-sm text-gray-500">Loading complaints...</div>
+          <AdminSkeletonBlock rows={5} />
         ) : complaints.length === 0 ? (
           <div className="p-10 text-center space-y-2 text-gray-500">
             <ShieldAlert className="w-9 h-9 mx-auto text-maroon-700" />

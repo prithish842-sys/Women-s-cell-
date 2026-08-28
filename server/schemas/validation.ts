@@ -57,6 +57,9 @@ export const StudentProfileUpdateSchema = z.object({
     preferredCollaboration: z.string().optional().nullable(),
     availabilityNote: z.string().optional().nullable(),
   }).optional(),
+  emergencyContactName: z.string().max(100).optional().nullable(),
+  emergencyContactRelationship: z.string().max(50).optional().nullable(),
+  emergencyContactPhone: z.string().regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format').or(z.literal('')).optional().nullable(),
 });
 
 export const SkillSchema = z.object({
@@ -79,6 +82,18 @@ export const FacultyAccountSchema = z.object({
   designation: z.string().min(2, 'Designation is required').optional().nullable(),
   phone: z.string().regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number').optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters').regex(/^(?=.*[a-zA-Z])(?=.*\d)/, 'Password must contain both letters and numbers'),
+  confirmPassword: z.string().optional(),
+  emergencyContactName: z.string().max(100).optional().nullable(),
+  emergencyContactRelationship: z.string().max(50).optional().nullable(),
+  emergencyContactPhone: z.string().regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format').or(z.literal('')).optional().nullable(),
+}).refine((data) => {
+  if (data.confirmPassword) {
+    return data.password === data.confirmPassword;
+  }
+  return true;
+}, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 export const GovernmentSchemeSchema = z.object({

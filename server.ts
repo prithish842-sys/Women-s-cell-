@@ -241,8 +241,11 @@ function createApp() {
   return app;
 }
 
+const currentFile = fileURLToPath(import.meta.url);
+const isLocalEntrypoint = Boolean(process.argv[1] && path.resolve(process.argv[1]) === currentFile);
+
 export const app = createApp();
-if (process.env.VERCEL === '1') {
+if (!isLocalEntrypoint) {
   setApplicationReady(true);
 }
 export default app;
@@ -282,8 +285,7 @@ async function startServer() {
   });
 }
 
-const currentFile = fileURLToPath(import.meta.url);
-if (process.argv[1] && path.resolve(process.argv[1]) === currentFile) {
+if (isLocalEntrypoint) {
   startServer().catch((error) => {
     setApplicationReady(false);
     console.error('Critical failure starting server:', error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error));

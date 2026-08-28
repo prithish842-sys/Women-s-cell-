@@ -37,6 +37,9 @@ export interface StudentProfile {
   entrepreneurship?: Record<string, any>;
   availability?: Record<string, any>;
   activities?: any[];
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -65,6 +68,9 @@ export interface FacultyProfile {
   department: string;
   designation: string;
   phone: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
   createdAt?: string;
   updatedAt?: string;
 }

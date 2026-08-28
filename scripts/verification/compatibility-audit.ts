@@ -11,7 +11,10 @@ const routePrefixes: Record<string, string> = {
   'student.ts': '/students',
   'faculty.ts': '/faculty',
   'admin.ts': '/admin',
+  'adminSafety.ts': '/admin/safety',
   'icc.ts': '/icc',
+  'safety.ts': '/safety',
+  'wellbeing.ts': '/wellbeing',
 };
 
 function walk(dir: string): string[] {
@@ -50,7 +53,21 @@ const frontendCalls = walk(srcDir)
       .filter(call => call.path.startsWith('/'));
   });
 
-const backendRoutes = walk(routesDir)
+const serverText = fs.existsSync(path.join(root, 'server.ts'))
+  ? fs.readFileSync(path.join(root, 'server.ts'), 'utf8')
+  : '';
+
+const healthRoutes = [...serverText.matchAll(/app\.(get|post|put|patch|delete)\(\s*['"]\/api\/v1([^'"]+)/g)]
+  .map(match => ({
+    file: 'server.ts',
+    method: match[1].toUpperCase(),
+    path: match[2],
+    protected: false,
+  }));
+
+const backendRoutes = [
+  ...healthRoutes,
+  ...walk(routesDir)
   .filter(file => file.endsWith('.ts'))
   .flatMap((file) => {
     const text = fs.readFileSync(file, 'utf8');
@@ -62,7 +79,8 @@ const backendRoutes = walk(routesDir)
       path: `${prefix}${match[2]}`,
       protected: /auth|authorize\(/.test(text.slice(match.index || 0, Math.min(text.length, (match.index || 0) + 260))),
     }));
-  });
+  }),
+];
 
 const unmatched = frontendCalls.filter(call => !backendRoutes.some(route => route.method === call.method && routeMatches(route.path, call.path)));
 const duplicateFrontendCalls = new Map<string, string[]>();

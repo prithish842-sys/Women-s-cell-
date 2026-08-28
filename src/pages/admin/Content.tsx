@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api.js';
 import { Settings, AlertTriangle, CheckCircle, RefreshCw, Save, Landmark } from 'lucide-react';
+import { AdminSkeletonBlock } from '../../components/admin/AdminUI.js';
 
 export const AdminContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -82,12 +83,7 @@ export const AdminContent: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-xl mx-auto py-12 text-center space-y-3">
-        <div className="w-10 h-10 border-4 border-maroon-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-xs text-gray-500 font-serif">Pulling site layout configurations...</p>
-      </div>
-    );
+    return <AdminSkeletonBlock rows={6} />;
   }
 
   return (

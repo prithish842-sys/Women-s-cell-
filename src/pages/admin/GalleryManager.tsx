@@ -427,6 +427,8 @@ export const GalleryManager: React.FC = () => {
                         src={resolveUploadUrl(album.coverImage)}
                         alt={album.title}
                         referrerPolicy="no-referrer"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute top-3 left-3 bg-matte-maroon/90 text-white text-[9px] font-bold tracking-wider px-2 py-0.5 rounded border border-white/15">
@@ -607,7 +609,7 @@ export const GalleryManager: React.FC = () => {
                     className="w-32 h-20 bg-matte-cream rounded-xl border border-dashed border-matte-beige flex flex-col items-center justify-center cursor-pointer hover:border-matte-rose/40 hover:bg-matte-blush/10 transition-all overflow-hidden shrink-0"
                   >
                     {coverPreview ? (
-                      <img src={coverPreview.startsWith('blob:') ? coverPreview : resolveUploadUrl(coverPreview)} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                      <img src={coverPreview.startsWith('blob:') ? coverPreview : resolveUploadUrl(coverPreview)} alt="Preview" referrerPolicy="no-referrer" decoding="async" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center p-2">
                         <Upload className="w-4 h-4 text-matte-maroon mx-auto" />
@@ -767,6 +769,8 @@ export const GalleryManager: React.FC = () => {
                         src={resolveUploadUrl(img.imageUrl)}
                         alt="Album content"
                         referrerPolicy="no-referrer"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       {/* Delete absolute button */}

@@ -97,7 +97,7 @@ export const AdminUsers: React.FC = () => {
                   <tr key={user._id} className="hover:bg-[#f9fbff]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        {user.profileImage ? <img src={resolveUploadUrl(user.profileImage)} alt="" className="h-10 w-10 rounded-full object-cover" /> : <span className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 font-black text-blue-700">{user.name?.slice(0, 1)}</span>}
+                        {user.profileImage ? <img src={resolveUploadUrl(user.profileImage)} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-full object-cover" /> : <span className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 font-black text-blue-700">{user.name?.slice(0, 1)}</span>}
                         <div><p className="font-black text-[#071247]">{user.name}</p><p className="text-[11px] font-semibold text-[#63708f]">{user.identifier}</p></div>
                       </div>
                     </td>

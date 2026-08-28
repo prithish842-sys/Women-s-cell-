@@ -16,6 +16,8 @@ import {
   memberFallbackPhoto,
   type PublicMember,
 } from '../../utils/memberDirectory.js';
+import { DetailPageSkeleton } from '../../components/common/Skeleton.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 export const MemberDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -76,12 +78,7 @@ export const MemberDetail: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-3xl space-y-3 px-4 py-16 text-center">
-        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#075cff] border-t-transparent" />
-        <p className="text-sm font-semibold text-[#657391]">Loading member profile...</p>
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (error || !member) {
@@ -150,16 +147,15 @@ export const MemberDetail: React.FC = () => {
       lg:w-56
     "
   >
-    <img
+    <ProgressiveImage
       src={getMemberPhoto(member)}
+      fallbackSrc={memberFallbackPhoto}
+      resolveSrc={false}
       alt={`${member.name} profile`}
       loading="eager"
       decoding="async"
-      onError={(event) => {
-        event.currentTarget.onerror = null;
-        event.currentTarget.src = memberFallbackPhoto;
-      }}
-      className="
+      wrapperClassName="h-full w-full"
+      imageClassName="
         h-full
         w-full
         object-cover

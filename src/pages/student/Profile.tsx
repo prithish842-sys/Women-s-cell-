@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext.js';
 import { useLanguage } from '../../contexts/LanguageContext.js';
 import { StudentProfileHero } from '../../components/student/StudentProfileHero.js';
 import { Save, AlertTriangle, CheckCircle, RefreshCw, BookOpen, User, Briefcase, Award, ExternalLink, ImagePlus, KeyRound, Languages, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
+import { DashboardSkeleton } from '../../components/common/Skeleton.js';
 
 interface SkillRecord {
   _id: string;
@@ -300,12 +301,7 @@ export const StudentProfileView: React.FC = () => {
         const profileCompletion = progress?.profileCompletionPercentage ?? 0;
 
   if (loading) {
-    return (
-      <div className="max-w-xl mx-auto py-12 text-center space-y-3">
-        <div className="w-10 h-10 border-4 border-maroon-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-xs text-gray-500 font-serif">Syncing core student record...</p>
-      </div>
-    );
+    return <DashboardSkeleton cards={6} />;
   }
 
   return (

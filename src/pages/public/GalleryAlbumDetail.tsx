@@ -4,7 +4,9 @@ import api from '../../utils/api.js';
 import { Calendar, MapPin, Sparkles, ChevronLeft, User, AlertCircle, Maximize2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GalleryImageLightbox } from '../../components/gallery/GalleryImageLightbox.js';
-import { assignImageFallback, galleryFallbackImage, withResolvedImage } from '../../utils/imageFallback.js';
+import { assignImageFallback, galleryFallbackImage } from '../../utils/imageFallback.js';
+import { DetailPageSkeleton } from '../../components/common/Skeleton.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 interface GalleryImage {
   _id: string;
@@ -61,11 +63,7 @@ export const GalleryAlbumDetail: React.FC = () => {
   }, [slug]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-32 bg-matte-white min-h-screen">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-matte-maroon/20 border-t-matte-maroon"></div>
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (error || !album) {
@@ -177,14 +175,16 @@ export const GalleryAlbumDetail: React.FC = () => {
                     }
                   }}
                 >
-                  <img
-                    src={withResolvedImage(image.imageUrl, galleryFallbackImage)}
+                  <ProgressiveImage
+                    src={image.imageUrl}
+                    fallbackSrc={galleryFallbackImage}
                     alt={image.altText || image.caption || `${album.title} photo ${index + 1}`}
                     referrerPolicy="no-referrer"
                     loading={index === 0 ? 'eager' : 'lazy'}
                     decoding="async"
                     onError={(event) => assignImageFallback(event, galleryFallbackImage)}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    wrapperClassName="h-full w-full"
+                    imageClassName="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   {/* Hover Caption Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-matte-charcoal/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-end">

@@ -56,6 +56,7 @@ const Footer: React.FC = () => {
             <span className="grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-white/8 text-sm font-black">SP</span>
             <div>
               <h2 className="text-xl font-black leading-none">Singa Pen Portal</h2>
+              <p className="mt-1.5 text-[0.65rem] font-bold text-white/80 uppercase tracking-wider">Sankara College of Science and Commerce</p>
               <p className="mt-1 text-[0.68rem] font-semibold text-white/65">Empowering Women. Empowering Future.</p>
             </div>
           </div>

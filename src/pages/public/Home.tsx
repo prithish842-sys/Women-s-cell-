@@ -25,11 +25,16 @@ import {
   getMemberPhoto,
   memberFallbackPhoto,
 } from '../../utils/memberDirectory.js';
+import { SchemeCardSkeleton, Skeleton } from '../../components/common/Skeleton.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 export const Home: React.FC = () => {
   const [featuredSchemes, setFeaturedSchemes] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [emergencyResources, setEmergencyResources] = useState<any[]>([]);
+  const [schemesLoading, setSchemesLoading] = useState(true);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +52,9 @@ export const Home: React.FC = () => {
       })
       .catch((error) => {
         console.error('Unable to load home page schemes:', error);
+      })
+      .finally(() => {
+        if (active) setSchemesLoading(false);
       });
 
     const loadMembers = api
@@ -62,6 +70,9 @@ export const Home: React.FC = () => {
       })
       .catch((error) => {
         console.error('Unable to load home page members:', error);
+      })
+      .finally(() => {
+        if (active) setMembersLoading(false);
       });
 
     const loadEmergencyResources = api
@@ -77,6 +88,9 @@ export const Home: React.FC = () => {
       })
       .catch((error) => {
         console.error('Unable to load home page safety resources:', error);
+      })
+      .finally(() => {
+        if (active) setResourcesLoading(false);
       });
 
     void Promise.allSettled([
@@ -212,9 +226,9 @@ mobileImagePosition="54% center"
                   </h2>
 
                   <p className="mt-3 max-w-[24rem] text-sm font-semibold leading-6 text-[#52617f]">
-                    Meet inspiring members who are leading change, building
-                    confidence and creating meaningful impact across the college
-                    community.
+                    Meet members supporting student confidence, participation
+                    and meaningful Women Empowerment Cell initiatives at
+                    Sankara College of Science and Commerce.
                   </p>
 
                   <Link
@@ -227,7 +241,11 @@ mobileImagePosition="54% center"
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-3">
-                  {members.length > 0 ? (
+                  {membersLoading ? (
+                    Array.from({ length: 3 }).map((_, index) => (
+                      <MiniMemberSkeleton key={index} />
+                    ))
+                  ) : members.length > 0 ? (
                     members.map((member) => (
                       <MiniMember
                         key={member._id}
@@ -268,7 +286,13 @@ mobileImagePosition="54% center"
                 actionTo="/schemes"
               />
 
-              {featuredSchemes.length > 0 ? (
+              {schemesLoading ? (
+                <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <SchemeCardSkeleton key={index} />
+                  ))}
+                </div>
+              ) : featuredSchemes.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                   {featuredSchemes.map((scheme) => (
                     <Link
@@ -488,7 +512,13 @@ mobileImagePosition="54% center"
                 </p>
 
                 <div className="mt-4 space-y-2">
-                  {emergencyContacts.slice(0, 5).map((item, index) => (
+                  {resourcesLoading ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <div key={index} className="rounded-lg bg-white/10 px-3 py-2.5">
+                        <Skeleton className="h-8 w-full bg-white/20" />
+                      </div>
+                    ))
+                  ) : emergencyContacts.slice(0, 5).map((item, index) => (
                     <div
                       key={`${item.name}-${item.phone}`}
                       className="flex items-center justify-between gap-3 rounded-lg bg-white/10 px-3 py-2.5"
@@ -630,18 +660,17 @@ const MiniMember: React.FC<{ member: any }> = ({ member }) => {
       to={`/members/${member._id}`}
       className="reference-card group flex min-h-[155px] flex-col items-center justify-center p-4 text-center transition duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
-      <img
+      <ProgressiveImage
         src={imageUrl}
+        fallbackSrc={memberFallbackPhoto}
+        resolveSrc={false}
         alt={member?.name || 'Singa Pen member'}
         width={72}
         height={72}
         loading="lazy"
         decoding="async"
-        onError={(event) => {
-          event.currentTarget.onerror = null;
-          event.currentTarget.src = memberFallbackPhoto;
-        }}
-        className="h-16 w-16 rounded-xl border border-[#e4eaff] object-cover object-center shadow-sm sm:h-[72px] sm:w-[72px]"
+        wrapperClassName="h-16 w-16 rounded-xl border border-[#e4eaff] shadow-sm sm:h-[72px] sm:w-[72px]"
+        imageClassName="h-full w-full object-cover object-center"
       />
 
       <strong className="mt-3 line-clamp-2 text-xs font-black leading-4 text-[#06123a]">
@@ -659,5 +688,14 @@ const MiniMember: React.FC<{ member: any }> = ({ member }) => {
     </Link>
   );
 };
+
+const MiniMemberSkeleton: React.FC = () => (
+  <div className="reference-card flex min-h-[155px] flex-col items-center justify-center p-4 text-center" aria-hidden="true">
+    <Skeleton className="h-16 w-16 rounded-xl bg-rose-100 sm:h-[72px] sm:w-[72px]" />
+    <Skeleton className="mt-3 h-4 w-24" />
+    <Skeleton className="mt-2 h-3 w-20" />
+    <Skeleton className="mt-4 h-3 w-16" />
+  </div>
+);
 
 export default Home;

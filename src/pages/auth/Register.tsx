@@ -309,7 +309,10 @@ export const Register: React.FC = () => {
           className="w-full max-w-[860px] rounded-[24px] border border-[#dce4f2] bg-white p-6 text-[#06123a] shadow-[0_24px_70px_rgba(7,20,38,0.12)] sm:p-8 lg:p-10"
         >
           <div className="text-center">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#7c3aed]">
+            <p className="text-xs font-black uppercase tracking-[0.1em] text-[#7c3aed]">
+              Sankara College of Science and Commerce
+            </p>
+            <p className="text-sm font-bold tracking-[0.1em] text-[#52617f] mt-1">
               Singa Pen Portal
             </p>
 

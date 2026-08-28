@@ -3,6 +3,8 @@ import api from '../../utils/api.js';
 import { Calendar, Award, BookOpen, Search, Sparkles, AlertCircle, Eye, Download, User, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { assignImageFallback, galleryFallbackImage, withResolvedImage } from '../../utils/imageFallback.js';
+import { AchievementCardSkeleton } from '../../components/common/Skeleton.js';
+import { ProgressiveImage } from '../../components/common/ProgressiveImage.js';
 
 interface Achievement {
   _id: string;
@@ -239,12 +241,14 @@ export const Achievements: React.FC = () => {
                 >
                   {/* Photo representation */}
                   <div className="w-full sm:w-44 h-44 rounded-xl overflow-hidden bg-matte-beige shrink-0">
-                    <img
-                      src={withResolvedImage(ach.image, galleryFallbackImage)}
+                    <ProgressiveImage
+                      src={ach.image}
+                      fallbackSrc={galleryFallbackImage}
                       alt={ach.title}
                       referrerPolicy="no-referrer"
                       onError={(event) => assignImageFallback(event, galleryFallbackImage)}
-                      className="w-full h-full object-cover"
+                      wrapperClassName="h-full w-full"
+                      imageClassName="w-full h-full object-cover"
                     />
                   </div>
 
@@ -305,8 +309,10 @@ export const Achievements: React.FC = () => {
           </h2>
 
           {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-matte-maroon/20 border-t-matte-maroon"></div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <AchievementCardSkeleton key={index} />
+              ))}
             </div>
           ) : error ? (
             <div className="bg-rose-50 border border-matte-rose/30 text-matte-maroon p-6 rounded-2xl flex items-center space-x-3 max-w-lg mx-auto">
@@ -457,12 +463,14 @@ export const Achievements: React.FC = () => {
                       <div className="space-y-2">
                         <span className="text-[10px] text-matte-charcoal/50 block font-bold uppercase tracking-wider">Event Photo</span>
                         <div className="aspect-video rounded-xl overflow-hidden bg-matte-cream border border-matte-beige">
-                          <img
-                            src={withResolvedImage(activeAchievement.image, galleryFallbackImage)}
+                          <ProgressiveImage
+                            src={activeAchievement.image}
+                            fallbackSrc={galleryFallbackImage}
                             alt="Achievement Event"
                             referrerPolicy="no-referrer"
                             onError={(event) => assignImageFallback(event, galleryFallbackImage)}
-                            className="w-full h-full object-cover"
+                            wrapperClassName="h-full w-full"
+                            imageClassName="w-full h-full object-cover"
                           />
                         </div>
                       </div>

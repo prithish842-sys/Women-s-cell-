@@ -278,6 +278,10 @@ model StudentProfile {
   clubJoinedAt           DateTime?
   achievementsSummary    String?
 
+  emergencyContactName         String?
+  emergencyContactRelationship String?
+  emergencyContactPhone        String?
+
   interestedInEntrepreneurship Boolean @default(false)
   businessIdea                 String?
   existingBusiness             String?
@@ -498,6 +502,9 @@ model FacultyProfile {
   department  String
   designation String
   phone       String?
+  emergencyContactName         String?
+  emergencyContactRelationship String?
+  emergencyContactPhone        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
