@@ -83,3 +83,6 @@ Thumbs.db
 # Local account provisioning credentials
 .secure/
 womens-cell-login-credentials.json
+
+.vercel
+.env*
