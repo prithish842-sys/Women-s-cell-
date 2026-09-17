@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, ExternalLink, LifeBuoy, Phone, RefreshCw, Shield, Siren } from 'lucide-react';
 import api from '../../utils/api.js';
+import { EmergencySosPanel } from '../../components/student/EmergencySosPanel.js';
 
 type Guide = { slug: string; title: string; introduction?: string; category?: string };
 type Resource = { _id?: string; title?: string; name?: string; description?: string; phone?: string; category?: string; url?: string };
@@ -35,6 +36,8 @@ export const StudentSafety: React.FC = () => {
         <div><div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/10"><Shield className="h-6 w-6" /></span><div><h1 className="text-2xl font-black tracking-[-0.03em] sm:text-3xl">Safety & Support</h1><p className="mt-1 text-sm font-semibold text-white/75">Access verified guidance and support when you need it.</p></div></div></div>
         <a href="tel:112" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#ff176b] px-5 py-3 text-sm font-black text-white"><Siren className="h-5 w-5" /> Emergency SOS</a>
       </section>
+
+      <EmergencySosPanel />
 
       <section className="grid gap-4 lg:grid-cols-[1.05fr_1fr_1fr]">
         <article className="rounded-xl border border-[#ffd1df] bg-white p-5 shadow-[0_12px_26px_rgba(7,20,38,0.04)]"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-full bg-[#fff0f5] text-[#ed1265]"><Phone className="h-5 w-5" /></span><div><h2 className="text-lg font-black text-[#ed1265]">Emergency Help</h2><p className="mt-1 text-xs font-semibold text-[#64748b]">Use official emergency services for immediate danger.</p></div></div><a href="tel:112" className="mt-5 flex items-center justify-between rounded-lg bg-[#ff176b] px-4 py-3 text-sm font-black text-white"><span>Call 112</span><ArrowRight className="h-4 w-4" /></a></article>

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-singa_pen_local_dev_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-singa_pen_portal}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5435:5432"
     volumes:
       - singa_pen_postgres_data:/var/lib/postgresql/data
     healthcheck:

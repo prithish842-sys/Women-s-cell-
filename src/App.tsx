@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext.js';
 import { useAuth } from './contexts/AuthContext.js';
 import { LanguageProvider } from './contexts/LanguageContext.js';
+import { ThemeProvider } from './contexts/ThemeContext.js';
 import { PublicLayout, ProtectedRoute, RoleRoute, DashboardLayout } from './components/common/Layouts.js';
 import { ScrollToTop } from './components/common/ScrollToTop.js';
 import { NetworkStatus } from './components/common/NetworkStatus.js';
@@ -71,6 +72,7 @@ const AdminSafetyDirectory = React.lazy(() => import('./pages/admin/SafetyDirect
 const AdminReports = React.lazy(() => import('./pages/admin/Reports.js').then(module => ({ default: module.AdminReports })));
 const AdminRoleUpdates = React.lazy(() => import('./pages/admin/RoleUpdates.js').then(module => ({ default: module.AdminRoleUpdates })));
 const AdminSafetyWellbeing = React.lazy(() => import('./pages/admin/SafetyWellbeing.js').then(module => ({ default: module.AdminSafetyWellbeing })));
+const AdminTrashBin = React.lazy(() => import('./pages/admin/TrashBin.js').then(module => ({ default: module.AdminTrashBin })));
 const AdminSettings = React.lazy(() => import('./pages/admin/Settings.js').then(module => ({ default: module.AdminSettings })));
 
 // Stylized Unauthorized Page
@@ -252,6 +254,7 @@ const AppRouter: React.FC = () => {
                 <Route path="/admin/reports" element={<AdminReports />} />
                 <Route path="/admin/role-updates" element={<AdminRoleUpdates />} />
                 <Route path="/admin/safety/wellbeing" element={<AdminSafetyWellbeing />} />
+                <Route path="/admin/trash" element={<AdminTrashBin />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
               </Route>
 
@@ -274,10 +277,12 @@ const AppRouter: React.FC = () => {
 // Main App Router Tree
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AppRouter />
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

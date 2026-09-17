@@ -23,6 +23,9 @@ const delegates: Record<ModelName, any> = {
   achievement: prisma.achievement,
 };
 
+// Models that carry soft-delete columns (deletedAt / deletedById).
+const softDeletableModels = new Set<ModelName>(['studentProfile', 'governmentScheme', 'galleryAlbum']);
+
 const dateOnlyFields = new Set(['expectedCompletionDate', 'startDate', 'endDate', 'eventDate', 'achievementDate']);
 
 function formatDateOnly(date: Date) {
@@ -215,14 +218,21 @@ export class PrismaRepository<T extends { _id?: string }> {
     return delegates[this.model];
   }
 
-  private async where(query: any = {}) {
+  private get softDeletable() {
+    return softDeletableModels.has(this.model);
+  }
+
+  private async where(query: any = {}, includeTrashed = false) {
+    let where: Record<string, any>;
     if (this.model === 'skill' && query.studentId) {
-      return { ...directWhere({ ...query, studentId: undefined }), student: { userId: query.studentId } };
+      where = { ...directWhere({ ...query, studentId: undefined }), student: { userId: query.studentId } };
+    } else if (this.model === 'achievement' && query.studentId) {
+      where = { ...directWhere({ ...query, studentId: undefined }), student: { userId: query.studentId } };
+    } else {
+      where = directWhere(query);
     }
-    if (this.model === 'achievement' && query.studentId) {
-      return { ...directWhere({ ...query, studentId: undefined }), student: { userId: query.studentId } };
-    }
-    return directWhere(query);
+    if (this.softDeletable && !includeTrashed) where.deletedAt = null;
+    return where;
   }
 
   async find(query: any = {}): Promise<T[]> {
@@ -236,7 +246,21 @@ export class PrismaRepository<T extends { _id?: string }> {
   }
 
   async findById(id: string): Promise<T | null> {
-    const record = await this.delegate.findUnique({ where: { id } });
+    const record = await this.delegate.findFirst({
+      where: {
+        id,
+        ...(this.softDeletable ? { deletedAt: null } : {}),
+      },
+    });
+    return record ? this.serializeRecord(record) : null;
+  }
+
+  /**
+   * Resolve a record by id regardless of soft-delete state. Used only by the
+   * Trash Bin restore / permanent-delete flows.
+   */
+  async findByRawId(id: string): Promise<T | null> {
+    const record = await this.delegate.findFirst({ where: { id } });
     return record ? this.serializeRecord(record) : null;
   }
 
@@ -272,6 +296,54 @@ export class PrismaRepository<T extends { _id?: string }> {
     if (!found?._id) return false;
     await this.delegate.delete({ where: { id: found._id } });
     return true;
+  }
+
+  /**
+   * Soft delete: stamps the record with deletedAt / deletedById so it is
+   * excluded from every normal query but recoverable from the Trash Bin.
+   */
+  async softDeleteById(id: string, deletedById: string): Promise<T | null> {
+    if (!this.softDeletable) return null;
+    const record = await this.delegate.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedById },
+    });
+    return this.serializeRecord(record);
+  }
+
+  /** Undo a soft delete, making the record visible again. */
+  async restoreById(id: string): Promise<T | null> {
+    if (!this.softDeletable) return null;
+    const record = await this.delegate.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+    });
+    return this.serializeRecord(record);
+  }
+
+  /** List records currently sitting in the Trash Bin. */
+  async findTrashed(query: any = {}): Promise<T[]> {
+    if (!this.softDeletable) return [];
+    const records = await this.delegate.findMany({
+      where: { ...directWhere(query), deletedAt: { not: null } },
+      orderBy: { deletedAt: 'desc' },
+    });
+    return Promise.all(records.map((record: any) => this.serializeRecord(record)));
+  }
+
+  /** Permanently delete a record (from the Trash Bin, with confirmation). */
+  async permanentDeleteOne(query: any = {}): Promise<boolean> {
+    const found = await this.delegate.findFirst({ where: await this.where(query, true) });
+    if (!found) return false;
+    await this.delegate.delete({ where: { id: found.id } });
+    return true;
+  }
+
+  /** Permanently purge every soft-deleted record of this model. */
+  async emptyTrash(): Promise<number> {
+    if (!this.softDeletable) return 0;
+    const result = await this.delegate.deleteMany({ where: { deletedAt: { not: null } } });
+    return result.count;
   }
 
   async deleteMany(query: any = {}): Promise<number> {

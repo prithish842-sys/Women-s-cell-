@@ -40,6 +40,8 @@ export interface StudentProfile {
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
+  deletedAt?: string | null;
+  deletedById?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -94,6 +96,8 @@ export interface GovernmentScheme {
   status?: 'UPCOMING' | 'ACTIVE' | 'EXPIRED';
   isFeatured: boolean;
   createdBy: string;
+  deletedAt?: string | null;
+  deletedById?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -123,6 +127,8 @@ export interface GalleryAlbum {
   isFeatured: boolean;
   isPublished: boolean;
   createdBy: string;
+  deletedAt?: string | null;
+  deletedById?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

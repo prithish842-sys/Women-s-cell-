@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { useLanguage } from '../../contexts/LanguageContext.js';
+import { useTheme } from '../../contexts/ThemeContext.js';
 import Header from './Header.js';
 import Footer from './Footer.js';
 import {
   User, Award, LayoutDashboard, Search, Users, Landmark,
   ShieldAlert, Bell, CalendarDays, HeartPulse, Shield, BookMarked,
   BarChart3, Settings, Images, LogOut, GraduationCap,
-  Languages, Moon, Sun, Home
+  Languages, Moon, Sun, Home, Archive
 } from 'lucide-react';
 import api, { resolveUploadUrl } from '../../utils/api.js';
 import { DashboardSkeleton } from './Skeleton.js';
@@ -62,6 +63,7 @@ export const RoleRoute: React.FC<{ allowedRoles: ('ADMIN' | 'STUDENT' | 'FACULTY
 export const DashboardLayout: React.FC = () => {
   const { user, logout, profile } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -69,10 +71,6 @@ export const DashboardLayout: React.FC = () => {
   const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
   const [adminSearchLoading, setAdminSearchLoading] = useState(false);
   const [adminSearchOpen, setAdminSearchOpen] = useState(false);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'light';
-    return window.localStorage.getItem('singa-dashboard-theme') || 'light';
-  });
 
   const isSelected = (path: string) => location.pathname === path;
   const isAdminRole = user?.role === 'ADMIN' || user?.role === 'ICC_ADMIN';
@@ -100,12 +98,6 @@ export const DashboardLayout: React.FC = () => {
       window.clearInterval(timer);
     };
   }, [user?.role]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    document.documentElement.dataset.dashboardTheme = theme;
-    window.localStorage.setItem('singa-dashboard-theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     if (!isAdminRole) return;
@@ -163,6 +155,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Govt Schemes', path: '/admin/schemes', icon: Landmark },
     { label: 'Gallery', path: '/admin/gallery', icon: Images },
     { label: 'Safety', path: '/admin/safety/wellbeing', icon: Shield },
+    { label: 'Trash Bin', path: '/admin/trash', icon: Archive },
     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
     { label: 'System Settings', path: '/admin/settings', icon: Settings },
   ];
@@ -202,6 +195,7 @@ export const DashboardLayout: React.FC = () => {
     { label: 'Schemes', path: '/admin/schemes', icon: Landmark },
     { label: 'Gallery', path: '/admin/gallery', icon: Images },
     { label: 'Safety', path: '/admin/safety/wellbeing', icon: Shield },
+    { label: 'Trash', path: '/admin/trash', icon: Archive },
     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
   ];
   const profileImage = resolveUploadUrl((profile as any)?.profileImage);
@@ -223,8 +217,8 @@ export const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-layout min-h-screen bg-[#f5f7ff] text-[#06123a] font-sans lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-[#e6ebf7] bg-white px-3 py-4 lg:flex">
+    <div className="dashboard-layout min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] px-3 py-4 lg:flex">
         <Link to="/" className="flex items-center gap-2.5 px-2 pb-3" aria-label="Singa Pen Portal home">
           <span className="grid h-10 w-10 place-items-center rounded-full bg-[linear-gradient(135deg,#071426,#2563eb_42%,#7c3aed_72%,#db2777)] text-[12px] font-black text-white shadow-[0_8px_18px_rgba(30,80,210,0.25)]">
             <svg viewBox="0 0 64 64" className="h-5 w-5 fill-current" aria-hidden="true"><path d="M32 8c-9 0-16 7-16 16 0 5 3 9 6 12l3 2-10 9 9-3 2 3c3 3 7 6 12 6 9 0 16-7 16-16S41 8 32 8zm-7 14a7 7 0 0 1 14 0 7 7 0 0 1-14 0zm16 16c-4 0-7 3-7 7v2h14v-2c0-4-3-7-7-7z" /></svg>
@@ -340,7 +334,7 @@ export const DashboardLayout: React.FC = () => {
               <button type="button" onClick={toggleLanguage} aria-label="Switch dashboard language" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#dfe9ff] bg-white px-3 text-xs font-black text-[#163b8f]">
                 <Languages className="h-4 w-4" /> {language === 'en' ? 'EN' : 'TA'}
               </button>
-              <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle dashboard theme" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe9ff] bg-white text-[#163b8f] hover:text-[#2563eb] focus:outline-none focus:ring-2 focus:ring-blue-200">
+              <button type="button" onClick={toggleTheme} aria-label="Toggle dashboard theme" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe9ff] bg-white text-[#163b8f] hover:text-[#2563eb] focus:outline-none focus:ring-2 focus:ring-blue-200">
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <Link

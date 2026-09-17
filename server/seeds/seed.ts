@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Users, StudentProfiles, FacultyProfiles, GovernmentSchemes, SiteContents, Skills, GalleryAlbums, GalleryImages, Achievements } from '../models/index.js';
 import { prisma } from '../config/prisma.js';
+import { reprovisionWomensCellMembers, restoreAdminCredentials } from './reprovisionWomensCell.js';
 
 export async function runSeed() {
   console.log('--- Starting Database Seeding ---');
@@ -1168,6 +1169,10 @@ export async function runSeed() {
 
   console.log(`✔ Seeded ${skillRequests.length} skill requests, ${workshopRows.length} workshops, participation, saved schemes, and notifications.`);
   console.log('');
+
+  await restoreAdminCredentials();
+  await reprovisionWomensCellMembers();
+
   console.log('Seed login identifiers created. Use the configured SEED_DEFAULT_PASSWORD for local seed accounts.');
   console.log('--- Database Seeding Completed Successfully! ---');
 }

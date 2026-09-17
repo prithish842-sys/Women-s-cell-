@@ -15,6 +15,7 @@ import adminRouter from './server/routes/admin.js';
 import iccRouter from './server/routes/icc.js';
 import safetyRouter from './server/routes/safety.js';
 import wellbeingRouter from './server/routes/wellbeing.js';
+import emergencyRouter from './server/routes/emergency.js';
 import adminSafetyRouter from './server/routes/adminSafety.js';
 import { errorMiddleware } from './server/middleware/auth.js';
 import { connectDatabase, disconnectDatabase, prisma } from './server/config/prisma.js';
@@ -128,6 +129,16 @@ function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
   });
+  const emergencyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message: 'Emergency alerts are rate limited. Please wait before triggering again.',
+    },
+  });
   const searchLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
     limit: 120,
@@ -219,6 +230,7 @@ function createApp() {
   app.use('/api/v1/auth/login', authLimiter);
   app.use('/api/v1/auth/student/register', authLimiter);
   app.use('/api/v1/wellbeing/me/chat', aiLimiter);
+  app.use('/api/v1/emergency/me/trigger', emergencyLimiter);
   app.use('/api/v1/icc/complaints', publicFormLimiter);
   app.use('/api/v1/safety/anonymous-concerns', publicFormLimiter);
   app.use('/api/v1/admin/search', searchLimiter);
@@ -232,6 +244,7 @@ function createApp() {
   app.use('/api/v1/icc', iccRouter);
   app.use('/api/v1/safety', safetyRouter);
   app.use('/api/v1/wellbeing', wellbeingRouter);
+  app.use('/api/v1/emergency', emergencyRouter);
   app.use('/api/v1/faculty', facultyRouter);
   app.use('/api/v1/admin/safety', adminSafetyRouter);
   app.use('/api/v1/admin', adminRouter);

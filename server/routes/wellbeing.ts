@@ -228,13 +228,27 @@ router.post('/me/chat', auth, authorize(['STUDENT']), async (req: AuthenticatedR
       };
     }
 
+    let history: { role: 'USER' | 'ASSISTANT'; content: string }[] = [];
+    let sessionId = parsed.data.sessionId || null;
+    if (sessionId && settings.storeAiChatHistory) {
+      const session = await prisma.aiChatSession.findFirst({ where: { id: sessionId, studentId: profile.id } });
+      if (!session) return res.status(404).json({ success: false, message: 'Chat session not found.' });
+      const recentMessages = await prisma.aiChatMessage.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: 'asc' },
+        take: 12,
+        select: { role: true, content: true },
+      });
+      history = recentMessages.map(message => ({ role: message.role as 'USER' | 'ASSISTANT', content: message.content }));
+    }
+
     const reply = await generateWellnessReply({
       message: parsed.data.message,
       languagePreference: parsed.data.languagePreference,
       context,
+      history,
     });
 
-    let sessionId = parsed.data.sessionId || null;
     if (settings.storeAiChatHistory) {
       const session = sessionId
         ? await prisma.aiChatSession.findFirst({ where: { id: sessionId, studentId: profile.id } })

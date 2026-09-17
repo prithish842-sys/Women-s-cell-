@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api, { resolveUploadUrl } from '../../utils/api.js';
 import { useAuth } from '../../contexts/AuthContext.js';
 import { useLanguage } from '../../contexts/LanguageContext.js';
+import { useTheme } from '../../contexts/ThemeContext.js';
 import { StudentProfileHero } from '../../components/student/StudentProfileHero.js';
 import { Save, AlertTriangle, CheckCircle, RefreshCw, BookOpen, User, Briefcase, Award, ExternalLink, ImagePlus, KeyRound, Languages, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
 import { DashboardSkeleton } from '../../components/common/Skeleton.js';
@@ -22,6 +23,7 @@ interface SkillRecord {
 export const StudentProfileView: React.FC = () => {
   const { user, profile, refreshUser } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const { theme: themeChoice, setTheme: setThemeChoice } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -35,10 +37,6 @@ export const StudentProfileView: React.FC = () => {
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroMessage, setHeroMessage] = useState('');
   const [heroError, setHeroError] = useState('');
-  const [themeChoice, setThemeChoice] = useState(() => {
-    if (typeof window === 'undefined') return 'light';
-    return window.localStorage.getItem('singa-dashboard-theme') || 'light';
-  });
 
   // Form Fields State
   const [phone, setPhone] = useState('');
@@ -59,12 +57,6 @@ export const StudentProfileView: React.FC = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    document.documentElement.dataset.dashboardTheme = themeChoice;
-    window.localStorage.setItem('singa-dashboard-theme', themeChoice);
-  }, [themeChoice]);
 
   const fetchProfile = async () => {
     setLoading(true);

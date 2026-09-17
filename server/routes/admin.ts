@@ -71,6 +71,7 @@ router.get('/search', auth, authorize(['ADMIN', 'ICC_ADMIN']), async (req: Authe
       }),
       prisma.galleryAlbum.findMany({
         where: {
+          deletedAt: null,
           OR: [
             { title: { contains: query, mode: 'insensitive' } },
             { venue: { contains: query, mode: 'insensitive' } },
@@ -172,7 +173,7 @@ router.get('/dashboard', auth, authorize(['ADMIN', 'ICC_ADMIN']), async (req: Au
       prisma.workshopParticipation.count({ where: { status: { in: ['REGISTERED', 'ATTENDED'] } } }),
       prisma.workshopParticipation.count({ where: { status: 'ATTENDED' } }),
       prisma.skillRequest.count({ where: { status: 'DRAFT' } }),
-      prisma.galleryAlbum.count(),
+      prisma.galleryAlbum.count({ where: { deletedAt: null } }),
       prisma.notification.count({ where: { userId: req.user!._id!, isRead: false } }),
       prisma.iccComplaint.count({ where: { status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'ASSIGNED'] } } }),
       prisma.achievement.count({ where: { isPublic: false } }),
@@ -567,7 +568,7 @@ router.put('/students/:studentId', auth, authorize(['ADMIN']), async (req: Authe
   }
 });
 
-// Delete student account entirely
+// Soft-delete student account (recoverable from the Trash Bin)
 router.delete('/students/:studentId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res: Response, next) => {
   try {
     const profile = await StudentProfiles.findById(req.params.studentId);
@@ -575,16 +576,14 @@ router.delete('/students/:studentId', auth, authorize(['ADMIN']), async (req: Au
       return res.status(404).json({ success: false, message: 'Student profile not found.' });
     }
 
-    // Delete User record
-    await Users.deleteOne({ _id: profile.userId });
-    // Delete profile
-    await StudentProfiles.deleteOne({ _id: req.params.studentId });
-    // Delete all skills
-    await Skills.deleteMany({ studentId: profile.userId });
+    // Deactivate the login account and soft-delete the profile so the record
+    // can be restored from the Trash Bin.
+    await Users.findByIdAndUpdate(profile.userId, { isActive: false });
+    await StudentProfiles.softDeleteById(req.params.studentId, req.user!._id!);
 
     return res.json({
       success: true,
-      message: 'Student account and all associated profile and skill records have been deleted.'
+      message: 'Student account moved to the Trash Bin and login deactivated.'
     });
   } catch (error) {
     next(error);
@@ -948,11 +947,11 @@ router.delete('/schemes/:schemeId', auth, authorize(['ADMIN']), async (req: Auth
       return res.status(404).json({ success: false, message: 'Scheme not found.' });
     }
 
-    await GovernmentSchemes.deleteOne({ _id: req.params.schemeId });
+    await GovernmentSchemes.softDeleteById(req.params.schemeId, req.user!._id!);
 
     return res.json({
       success: true,
-      message: 'Government scheme deleted successfully.'
+      message: 'Government scheme moved to the Trash Bin.'
     });
   } catch (error) {
     next(error);
@@ -1144,7 +1143,7 @@ router.put('/gallery/albums/:albumId', auth, authorize(['ADMIN']), uploadGallery
   }
 });
 
-// Delete Album
+// Soft-delete Album (recoverable from the Trash Bin)
 router.delete('/gallery/albums/:albumId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
   try {
     const album = await GalleryAlbums.findById(req.params.albumId);
@@ -1152,18 +1151,166 @@ router.delete('/gallery/albums/:albumId', auth, authorize(['ADMIN']), async (req
       return res.status(404).json({ success: false, message: 'Album not found.' });
     }
 
-    // Delete all images in album
+    // Photos stay on storage so the album can be restored intact.
+    await GalleryAlbums.softDeleteById(req.params.albumId, req.user!._id!);
+
+    return res.json({
+      success: true,
+      message: 'Album moved to the Trash Bin.'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// --- TRASH BIN (restore / permanent delete / empty) ---
+
+// Aggregated Trash Bin across soft-deletable collections.
+router.get('/trash', auth, authorize(['ADMIN']), async (_req: AuthenticatedRequest, res, next) => {
+  try {
+    const [schemes, albums, students] = await Promise.all([
+      GovernmentSchemes.findTrashed(),
+      GalleryAlbums.findTrashed(),
+      StudentProfiles.findTrashed(),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        schemes,
+        albums,
+        students,
+        counts: {
+          schemes: schemes.length,
+          albums: albums.length,
+          students: students.length,
+          total: schemes.length + albums.length + students.length,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/trash/schemes/:schemeId/restore', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const scheme = await GovernmentSchemes.findByRawId(req.params.schemeId);
+    if (!scheme || !scheme.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed scheme not found.' });
+    }
+    await GovernmentSchemes.restoreById(req.params.schemeId);
+    return res.json({ success: true, message: 'Scheme restored from the Trash Bin.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/trash/schemes/:schemeId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const scheme = await GovernmentSchemes.findByRawId(req.params.schemeId);
+    if (!scheme || !scheme.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed scheme not found.' });
+    }
+    await GovernmentSchemes.permanentDeleteOne({ _id: req.params.schemeId });
+    return res.json({ success: true, message: 'Scheme permanently deleted.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/trash/gallery/:albumId/restore', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const album = await GalleryAlbums.findByRawId(req.params.albumId);
+    if (!album || !album.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed album not found.' });
+    }
+    await GalleryAlbums.restoreById(req.params.albumId);
+    return res.json({ success: true, message: 'Album restored from the Trash Bin.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/trash/gallery/:albumId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const album = await GalleryAlbums.findByRawId(req.params.albumId);
+    if (!album || !album.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed album not found.' });
+    }
     const images = await GalleryImages.find({ albumId: album._id });
     for (const image of images) {
       await deleteStoredFile(image.imageUrl);
       await GalleryImages.deleteOne({ _id: image._id });
     }
+    await GalleryAlbums.permanentDeleteOne({ _id: album._id });
+    return res.json({ success: true, message: 'Album and its photos permanently deleted.' });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    await GalleryAlbums.deleteOne({ _id: req.params.albumId });
+router.post('/trash/students/:studentId/restore', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const profile = await StudentProfiles.findByRawId(req.params.studentId);
+    if (!profile || !profile.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed student profile not found.' });
+    }
+    await StudentProfiles.restoreById(req.params.studentId);
+    if (profile.userId) {
+      await Users.findByIdAndUpdate(profile.userId, { isActive: true });
+    }
+    return res.json({ success: true, message: 'Student profile restored and login re-activated.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/trash/students/:studentId', auth, authorize(['ADMIN']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const profile = await StudentProfiles.findByRawId(req.params.studentId);
+    if (!profile || !profile.deletedAt) {
+      return res.status(404).json({ success: false, message: 'Trashed student profile not found.' });
+    }
+    if (profile.userId) {
+      await Users.deleteOne({ _id: profile.userId });
+      await Skills.deleteMany({ studentId: profile.userId });
+    }
+    await StudentProfiles.permanentDeleteOne({ _id: req.params.studentId });
+    return res.json({ success: true, message: 'Student account permanently deleted.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Empty the entire Trash Bin (irreversible - requires a confirmation value).
+router.delete('/trash', auth, authorize(['ADMIN']), async (_req: AuthenticatedRequest, res, next) => {
+  try {
+    const trashedAlbums = await GalleryAlbums.findTrashed();
+    for (const album of trashedAlbums) {
+      const images = await GalleryImages.find({ albumId: album._id });
+      for (const image of images) {
+        await deleteStoredFile(image.imageUrl);
+        await GalleryImages.deleteOne({ _id: image._id });
+      }
+    }
+
+    const trashedStudents = await StudentProfiles.findTrashed();
+    for (const profile of trashedStudents) {
+      if (profile.userId) {
+        await Users.deleteOne({ _id: profile.userId });
+        await Skills.deleteMany({ studentId: profile.userId });
+      }
+    }
+
+    const [schemes, albums, students] = await Promise.all([
+      GovernmentSchemes.emptyTrash(),
+      GalleryAlbums.emptyTrash(),
+      StudentProfiles.emptyTrash(),
+    ]);
 
     return res.json({
       success: true,
-      message: 'Album and all its associated photos deleted successfully.'
+      message: `Trash Bin emptied. ${schemes} scheme(s), ${albums} album(s) and ${students} student profile(s) permanently deleted.`,
     });
   } catch (error) {
     next(error);
@@ -2398,12 +2545,12 @@ router.get('/reports', auth, authorize(['ADMIN']), async (_req: AuthenticatedReq
       savedSchemes,
       pendingIccCases,
     ] = await Promise.all([
-      prisma.studentProfile.findMany({ select: { department: true, course: true, courseDurationYears: true } }),
+      prisma.studentProfile.findMany({ where: { deletedAt: null }, select: { department: true, course: true, courseDurationYears: true } }),
       prisma.workshop.count(),
       prisma.skillRequest.groupBy({ by: ['status'], _count: { _all: true } }),
-      prisma.governmentScheme.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.governmentScheme.groupBy({ by: ['status'], _count: { _all: true }, where: { deletedAt: null } }),
       prisma.achievement.count(),
-      prisma.galleryAlbum.count(),
+      prisma.galleryAlbum.count({ where: { deletedAt: null } }),
       prisma.workshopParticipation.count({ where: { status: { in: ['REGISTERED', 'ATTENDED'] } } }),
       prisma.workshopParticipation.count({ where: { status: 'ATTENDED' } }),
       prisma.savedScheme.count(),

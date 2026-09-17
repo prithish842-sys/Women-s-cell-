@@ -120,6 +120,8 @@ export const StudentWorkshops: React.FC = () => {
     const leading =
       first.getDay();
 
+    const todayKey = dateKey(new Date());
+
     return [
       ...Array.from(
         {
@@ -140,7 +142,7 @@ export const StudentWorkshops: React.FC = () => {
             index + 1,
           ),
       ),
-    ];
+    ].map((day) => day ? { date: day, isToday: dateKey(day) === todayKey } : null);
   }, [calendarCursor]);
 
   const workshopsByDate =
@@ -395,8 +397,8 @@ export const StudentWorkshops: React.FC = () => {
           ))}
 
           {calendarDays.map(
-            (day, index) => {
-              if (!day) {
+            (cell, index) => {
+              if (!cell) {
                 return (
                   <span
                     key={`blank-${index}`}
@@ -405,6 +407,7 @@ export const StudentWorkshops: React.FC = () => {
                 );
               }
 
+              const day = cell.date;
               const key =
                 dateKey(day);
 
@@ -421,6 +424,8 @@ export const StudentWorkshops: React.FC = () => {
                 <button
                   key={key}
                   type="button"
+                  aria-pressed={active}
+                  aria-label={`${day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${eventCount > 0 ? `, ${eventCount} event${eventCount === 1 ? '' : 's'}` : ''}${cell.isToday ? ', today' : ''}`}
                   onClick={() =>
                     setSelectedDate(
                       active
@@ -431,12 +436,18 @@ export const StudentWorkshops: React.FC = () => {
                   className={`relative h-10 rounded-lg border text-xs font-black transition sm:h-11 sm:rounded-xl sm:text-sm ${
                     active
                       ? 'border-[#2563eb] bg-[#2563eb] text-white'
-                      : eventCount > 0
-                        ? 'border-[#cfd8ff] bg-[#eef3ff] text-[#1d4ed8]'
-                        : 'border-[#edf2fb] bg-white text-[#475569]'
+                      : cell.isToday
+                        ? 'border-[#2563eb] bg-[#eff4ff] text-[#1d4ed8] ring-1 ring-[#2563eb]/40'
+                        : eventCount > 0
+                          ? 'border-[#cfd8ff] bg-[#eef3ff] text-[#1d4ed8]'
+                          : 'border-[#edf2fb] bg-white text-[#475569]'
                   }`}
                 >
                   {day.getDate()}
+
+                  {cell.isToday && !active ? (
+                    <span className="absolute top-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#2563eb]" />
+                  ) : null}
 
                   {eventCount > 0 ? (
                     <>

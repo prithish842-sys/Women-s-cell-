@@ -72,7 +72,10 @@ const accountSpecs: AccountSpec[] = [
     label: 'SathyPriya.S', email: 'sathyapriyas@sankara.ac.in', expectedRole: 'FACULTY', identifiers: ['WEC-FAC-SATHYPRIYA-S'], aliases: ['SathyPriya.S', 'Sathyapriya.S', 'Sathyaprita.s'],
     createIfMissing: { kind: 'FACULTY', identifier: 'WEC-FAC-SATHYPRIYA-S', staffId: 'WEC-FAC-007', department: 'Bachelor of Computer Science', designation: 'Faculty' }
   },
-  { label: 'Anamika.S', email: 'anamikasbscit2024@sankara.ac.in', expectedRole: 'STUDENT', identifiers: ['WEC-STU-S-ANAMIKA'], aliases: ['Anamika.S', 'S.Anamika', 'S. Anamika', 'Anamika A', 'Anamika'], compactAliases: ['anamika', 'anamikaa', 'sanamika'] },
+  {
+    label: 'Anamika.S', email: 'anamikasbscit2024@sankara.ac.in', expectedRole: 'STUDENT', identifiers: ['WEC-STU-S-ANAMIKA'], aliases: ['Anamika.S', 'S.Anamika', 'S. Anamika', 'Anamika A', 'Anamika'], compactAliases: ['anamika', 'anamikaa', 'sanamika'],
+    createIfMissing: { kind: 'STUDENT', identifier: 'WEC-STU-S-ANAMIKA', registerNumber: 'WEC-STU-006', department: 'Bachelor of Computer Science (IT)', course: 'B.Sc IT', joiningAcademicYear: '2024-2025', joiningYear: 2024, expectedPassingYear: 2027, expectedCompletionDate: '2027-04-30', courseDurationYears: 3, currentStudyYear: 3, academicStatus: 'FINAL_YEAR', isSingaPenMember: true, clubRole: 'Member', profileImage: '/uploads/members/womens-cell/anamika.jpeg' }
+  },
   { label: 'Dr Jayagowri G S', email: 'jayagowrigs@sankara.ac.in', expectedRole: 'FACULTY', identifiers: ['WEC-FAC-JAYAGOWRI-GS'], aliases: ['Dr Jayagowri G S', 'Jayagowri G S', 'G S Jayagowri'] },
   { label: 'Ms. S. Archana', email: 'archanas@sankara.ac.in', expectedRole: 'FACULTY', identifiers: ['WEC-FAC-S-ARCHANA'], aliases: ['S. Archana', 'Ms. S. Archana', 'Archana S'] },
   { label: 'Durganandhini V', email: 'durganandhininandhini524@gmail.com', expectedRole: 'STUDENT', identifiers: ['WEC-STU-DURGANANDHINI-V'], aliases: ['Durganandhini V', 'Durganandhini v'] },

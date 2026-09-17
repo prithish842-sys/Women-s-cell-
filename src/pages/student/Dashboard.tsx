@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext.js';
 import {
   Award,
   Bell,
-  BookOpen,
   Bookmark,
   CalendarDays,
   Crown,
@@ -17,13 +16,12 @@ import {
   MessageCircle,
   RefreshCw,
   Shield,
-  Sparkles,
   UserRound,
 } from 'lucide-react';
 import { DashboardSkeleton } from '../../components/common/Skeleton.js';
 import { DailyWellbeingCheckIn } from '../../components/wellbeing/DailyWellbeingCheckIn.js';
 import { StudentProfileHero } from '../../components/student/StudentProfileHero.js';
-import heroArtwork from '../../assets/images/hero/singa-pen-hero.png';
+
 
 type LoadState = {
   metrics: any;
@@ -298,17 +296,6 @@ export const StudentDashboard: React.FC = () => {
       )}
 
       <DailyWellbeingCheckIn compact onSaved={fetchDashboardMetrics} />
-
-      <section className="relative overflow-hidden rounded-xl bg-[#06175b] p-6 text-white shadow-[0_20px_45px_rgba(7,20,38,0.16)]">
-        <img src={heroArtwork} alt="" aria-hidden="true" loading="eager" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center opacity-55" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,16,62,0.96),rgba(7,20,70,0.76)_48%,rgba(233,22,112,0.44))]" />
-        <div className="relative max-w-md">
-          <Sparkles className="h-6 w-6 text-[#72e8ef]" />
-          <h2 className="mt-3 text-2xl font-black tracking-[-0.02em]">Be part of a community that empowers you.</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-white/82">Join Singa Pen Club to connect, learn and grow with inspiring women.</p>
-          <Link to="/members" className="mt-5 inline-flex items-center gap-2 rounded-md bg-[#075cff] px-5 py-3 text-sm font-black text-white">Join Singa Pen Club</Link>
-        </div>
-      </section>
     </div>
   );
 };

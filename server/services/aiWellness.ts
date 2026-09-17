@@ -49,6 +49,7 @@ export async function generateWellnessReply(input: {
   message: string;
   languagePreference: Language;
   context?: WellbeingContext;
+  history?: { role: 'USER' | 'ASSISTANT'; content: string }[];
 }) {
   const language = detectWellnessLanguage(input.message, input.languagePreference);
   const apiKey = process.env.AI_API_KEY || process.env.AI_PROVIDER_API_KEY || process.env.GEMINI_API_KEY;
@@ -65,6 +66,15 @@ export async function generateWellnessReply(input: {
   }
 
   try {
+    // Sliding-window conversation memory: keep the most recent turns only so
+    // the model can follow along without carrying a growing prompt.
+    const recentHistory = (input.history || []).slice(-10);
+    const historyBlock = recentHistory.length > 0
+      ? ['Recent conversation:',
+        ...recentHistory.map(turn => `${turn.role === 'USER' ? 'Student' : 'Sakhi'}: ${turn.content}`),
+        '',
+      ].join('\n')
+      : '';
     const prompt = [
       'You are Sakhi, a supportive wellbeing companion for women students.',
       'You are not a doctor, psychologist, psychiatrist, diagnosis engine, legal advisor, or emergency responder.',
@@ -73,6 +83,7 @@ export async function generateWellnessReply(input: {
       'Respond in the detected/requested language. Use proper Unicode Tamil for Tamil and natural Tanglish for Tanglish.',
       safetyRisk ? 'The student may be at immediate safety risk. Prioritize human support, emergency help, and trusted-person contact.' : 'Offer gentle reflection, grounding, journaling, small-task breakdown, rest, and human support when useful.',
       input.context ? `Minimum wellbeing context: ${JSON.stringify(input.context)}` : 'No wellbeing history consent/context is available.',
+      historyBlock,
       `Student message: ${input.message}`,
     ].join('\n');
 

@@ -222,6 +222,31 @@ enum AiChatLanguagePreference {
   TANGLISH
 }
 
+enum EmergencyContactType {
+  FAMILY
+  FRIEND
+  STAFF
+  SUPPORT
+  OTHER
+}
+
+enum EmergencyEventTriggerSource {
+  IN_APP_SOS
+  PRESS_AND_HOLD
+  MULTI_TAP
+  HARDWARE_BUTTON
+  OTHER
+}
+
+enum EmergencyEventStatus {
+  TRIGGERED
+  LOCATION_RECEIVED
+  NOTIFYING
+  NOTIFIED
+  RESOLVED
+  FAILED
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -234,23 +259,26 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  studentProfile         StudentProfile?
-  facultyProfile         FacultyProfile?
-  createdSchemes         GovernmentScheme[]     @relation("SchemeCreatedBy")
-  createdAlbums          GalleryAlbum[]         @relation("AlbumCreatedBy")
-  uploadedGalleryImages  GalleryImage[]         @relation("GalleryImageUploadedBy")
-  createdAchievements    Achievement[]          @relation("AchievementCreatedBy")
-  updatedSiteContent     SiteContent[]          @relation("SiteContentUpdatedBy")
-  submittedIccComplaints IccComplaint[]         @relation("SubmittedIccComplaints")
-  assignedIccComplaints  IccComplaint[]         @relation("AssignedIccComplaints")
-  createdSkillRequests   SkillRequest[]         @relation("SkillRequestCreatedBy")
-  createdWorkshops       Workshop[]             @relation("WorkshopCreatedBy")
-  createdOpportunities   JobOpportunity[]       @relation("OpportunityCreatedBy")
-  createdSupportContacts SafetySupportContact[] @relation("SupportContactCreatedBy")
-  reviewedRoleUpdates    StudentRoleUpdate[]    @relation("RoleUpdateReviewedBy")
-  notifications          Notification[]
-  createdSafetyGuides     SafetyGuide[]          @relation("SafetyGuideCreatedBy")
-  createdEmergencyResources EmergencyResource[]   @relation("EmergencyResourceCreatedBy")
+  studentProfile            StudentProfile?
+  facultyProfile            FacultyProfile?
+  createdSchemes            GovernmentScheme[]     @relation("SchemeCreatedBy")
+  createdAlbums             GalleryAlbum[]         @relation("AlbumCreatedBy")
+  uploadedGalleryImages     GalleryImage[]         @relation("GalleryImageUploadedBy")
+  createdAchievements       Achievement[]          @relation("AchievementCreatedBy")
+  updatedSiteContent        SiteContent[]          @relation("SiteContentUpdatedBy")
+  submittedIccComplaints    IccComplaint[]         @relation("SubmittedIccComplaints")
+  assignedIccComplaints     IccComplaint[]         @relation("AssignedIccComplaints")
+  createdSkillRequests      SkillRequest[]         @relation("SkillRequestCreatedBy")
+  createdWorkshops          Workshop[]             @relation("WorkshopCreatedBy")
+  createdOpportunities      JobOpportunity[]       @relation("OpportunityCreatedBy")
+  createdSupportContacts    SafetySupportContact[] @relation("SupportContactCreatedBy")
+  reviewedRoleUpdates       StudentRoleUpdate[]    @relation("RoleUpdateReviewedBy")
+  notifications             Notification[]
+  createdSafetyGuides       SafetyGuide[]          @relation("SafetyGuideCreatedBy")
+  createdEmergencyResources EmergencyResource[]    @relation("EmergencyResourceCreatedBy")
+  emergencyContacts         EmergencyContact[]     @relation("EmergencyContactOwner")
+  emergencyEvents           EmergencyEvent[]       @relation("EmergencyEventUser")
+  createdEmergencyEvents    EmergencyEvent[]       @relation("EmergencyEventCreatedBy")
 
   @@index([role])
   @@index([isActive])
@@ -297,10 +325,13 @@ model StudentProfile {
   availabilityNote           String?
   activities                 Json?
 
+  deletedAt   DateTime?
+  deletedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   skills                 Skill[]
   achievements           Achievement[]
   skillRequestRecipients SkillRequestRecipient[]
@@ -311,34 +342,37 @@ model StudentProfile {
   wellbeingPrivacy       WellbeingPrivacySetting?
   aiChatSessions         AiChatSession[]
   counsellingRequests    CounsellingRequest[]
+  emergencyContacts      EmergencyContact[]
+  emergencyEvents        EmergencyEvent[]
 
   @@index([department])
   @@index([course])
   @@index([academicStatus])
   @@index([isSingaPenMember])
   @@index([expectedCompletionDate])
+  @@index([deletedAt])
 }
 
 model SafetyGuide {
-  id                  String              @id @default(cuid())
-  slug                String              @unique
-  title               String
-  category            SafetyGuideCategory
-  introduction        String
-  whatToKnow          String[]
-  warningSigns        String[]
-  immediateActions    String[]
-  stepByStepGuidance  String[]
-  dos                 String[]
-  donts               String[]
-  whenToSeekHelp      String[]
+  id                       String                      @id @default(cuid())
+  slug                     String                      @unique
+  title                    String
+  category                 SafetyGuideCategory
+  introduction             String
+  whatToKnow               String[]
+  warningSigns             String[]
+  immediateActions         String[]
+  stepByStepGuidance       String[]
+  dos                      String[]
+  donts                    String[]
+  whenToSeekHelp           String[]
   relatedContactCategories EmergencyResourceCategory[]
-  officialResourceIds String[]
-  isPublished         Boolean             @default(false)
-  lastVerifiedDate    DateTime?
-  createdById         String
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  officialResourceIds      String[]
+  isPublished              Boolean                     @default(false)
+  lastVerifiedDate         DateTime?
+  createdById              String
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
 
   createdBy User @relation("SafetyGuideCreatedBy", fields: [createdById], references: [id])
 
@@ -348,23 +382,23 @@ model SafetyGuide {
 }
 
 model EmergencyResource {
-  id               String                    @id @default(cuid())
-  name             String
-  purpose          String
-  phone            String?
-  alternatePhone   String?
-  email            String?
-  address          String?
-  website          String?
-  category         EmergencyResourceCategory
-  isEmergency      Boolean                   @default(false)
-  isOfficial       Boolean                   @default(false)
-  sourceName       String?
-  verifiedDate     DateTime?
-  isActive         Boolean                   @default(true)
-  createdById      String?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  id             String                    @id @default(cuid())
+  name           String
+  purpose        String
+  phone          String?
+  alternatePhone String?
+  email          String?
+  address        String?
+  website        String?
+  category       EmergencyResourceCategory
+  isEmergency    Boolean                   @default(false)
+  isOfficial     Boolean                   @default(false)
+  sourceName     String?
+  verifiedDate   DateTime?
+  isActive       Boolean                   @default(true)
+  createdById    String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   createdBy User? @relation("EmergencyResourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -374,16 +408,16 @@ model EmergencyResource {
 }
 
 model AnonymousConcern {
-  id           String   @id @default(cuid())
-  referenceNumber String @unique
-  category     String
-  description  String
-  incidentDate DateTime?
-  location     String?
-  attachmentUrl String?
-  status       String   @default("SUBMITTED")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  referenceNumber String    @unique
+  category        String
+  description     String
+  incidentDate    DateTime?
+  location        String?
+  attachmentUrl   String?
+  status          String    @default("SUBMITTED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([category])
   @@index([status])
@@ -391,17 +425,17 @@ model AnonymousConcern {
 }
 
 model WellbeingCheckIn {
-  id           String          @id @default(cuid())
+  id           String        @id @default(cuid())
   studentId    String
-  date         DateTime        @db.Date
+  date         DateTime      @db.Date
   mood         WellbeingMood
   stressLevel  Int
   energyLevel  Int
   sleepQuality SleepQuality
   feelings     String[]
   reflection   String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -410,12 +444,12 @@ model WellbeingCheckIn {
 }
 
 model WellbeingPrivacySetting {
-  id                       String   @id @default(cuid())
-  studentId                String   @unique
-  personalizeAiWithCheckIns Boolean @default(false)
-  storeAiChatHistory       Boolean  @default(false)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  studentId                 String   @unique
+  personalizeAiWithCheckIns Boolean  @default(false)
+  storeAiChatHistory        Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
@@ -427,27 +461,80 @@ model AiChatSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  student  StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student  StudentProfile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   messages AiChatMessage[]
 
   @@index([studentId, updatedAt])
 }
 
 model AiChatMessage {
-  id        String   @id @default(cuid())
+  id        String                   @id @default(cuid())
   sessionId String
   role      String
   content   String
   language  AiChatLanguagePreference @default(AUTO)
-  createdAt DateTime @default(now())
+  createdAt DateTime                 @default(now())
 
   session AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
 }
 
+model EmergencyContact {
+  id             String               @id @default(cuid())
+  ownerUserId    String
+  ownerRole      UserRole
+  name           String
+  phone          String
+  relationship   String
+  contactType    EmergencyContactType @default(OTHER)
+  isStaffContact Boolean              @default(false)
+  isVerified     Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  owner            User            @relation("EmergencyContactOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id])
+  studentProfileId String?
+
+  @@index([ownerUserId])
+  @@index([contactType])
+}
+
+model EmergencyEvent {
+  id                 String                      @id @default(cuid())
+  userId             String
+  userName           String
+  triggeredAt        DateTime                    @default(now())
+  triggerSource      EmergencyEventTriggerSource @default(IN_APP_SOS)
+  locationStatus     String                      @default("PENDING")
+  latitude           Float?
+  longitude          Float?
+  locationAccuracy   Float?
+  locationLink       String?
+  messageContent     String?
+  notificationStatus String                      @default("PENDING")
+  notificationDetail Json?
+  perContactStatus   Json?
+  status             EmergencyEventStatus        @default(TRIGGERED)
+  resolvedAt         DateTime?
+  createdById        String
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  user             User            @relation("EmergencyEventUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy        User            @relation("EmergencyEventCreatedBy", fields: [createdById], references: [id])
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id])
+  studentProfileId String?
+
+  @@index([userId])
+  @@index([status])
+  @@index([triggeredAt])
+  @@index([createdAt])
+}
+
 model CounsellingRequest {
-  id                 String                    @id @default(cuid())
+  id                 String                   @id @default(cuid())
   studentId          String
   supportType        SupportRequestType
   preferredDate      DateTime?
@@ -456,8 +543,8 @@ model CounsellingRequest {
   note               String?
   status             CounsellingRequestStatus @default(REQUESTED)
   assignedCounsellor String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -496,17 +583,17 @@ model StudentRoleUpdate {
 }
 
 model FacultyProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  staffId     String   @unique
-  department  String
-  designation String
-  phone       String?
+  id                           String   @id @default(cuid())
+  userId                       String   @unique
+  staffId                      String   @unique
+  department                   String
+  designation                  String
+  phone                        String?
   emergencyContactName         String?
   emergencyContactRelationship String?
   emergencyContactPhone        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -555,6 +642,8 @@ model GovernmentScheme {
   contactInformation String?
   status             SchemeStatus
   isFeatured         Boolean      @default(false)
+  deletedAt          DateTime?
+  deletedById        String?
   createdById        String
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -567,6 +656,7 @@ model GovernmentScheme {
   @@index([isFeatured])
   @@index([startDate])
   @@index([endDate])
+  @@index([deletedAt])
 }
 
 model SkillRequest {
@@ -598,18 +688,18 @@ model SkillRequest {
 }
 
 model SkillRequestRecipient {
-  id             String    @id @default(cuid())
-  skillRequestId String
-  studentId      String
-  matchedSkills  String[]
-  matchReasons   String[]
-  matchScore     Int       @default(0)
-  isRead         Boolean   @default(false)
-  readAt         DateTime?
-  responseStatus String    @default("PENDING")
+  id              String    @id @default(cuid())
+  skillRequestId  String
+  studentId       String
+  matchedSkills   String[]
+  matchReasons    String[]
+  matchScore      Int       @default(0)
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  responseStatus  String    @default("PENDING")
   responseMessage String?
-  respondedAt    DateTime?
-  notifiedAt     DateTime  @default(now())
+  respondedAt     DateTime?
+  notifiedAt      DateTime  @default(now())
 
   skillRequest SkillRequest   @relation(fields: [skillRequestId], references: [id], onDelete: Cascade)
   student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -784,6 +874,8 @@ model GalleryAlbum {
   coverImage       String?
   isFeatured       Boolean         @default(false)
   isPublished      Boolean         @default(false)
+  deletedAt        DateTime?
+  deletedById      String?
   createdById      String
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -796,6 +888,7 @@ model GalleryAlbum {
   @@index([isPublished])
   @@index([isFeatured])
   @@index([eventDate])
+  @@index([deletedAt])
 }
 
 model GalleryImage {

@@ -22,7 +22,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/uploads') || url.pathname.includes('/auth') || url.pathname.includes('/wellbeing') || url.pathname.includes('/icc') || url.pathname.includes('/admin') || url.pathname.includes('/students') || url.pathname.includes('/faculty')) return;
+  if (url.pathname.startsWith('/uploads') || url.pathname.includes('/auth') || url.pathname.includes('/wellbeing') || url.pathname.includes('/emergency') || url.pathname.includes('/icc') || url.pathname.includes('/admin') || url.pathname.includes('/students') || url.pathname.includes('/faculty')) return;
 
   const cacheableApi = PUBLIC_API_ALLOWLIST.some((path) => url.pathname.startsWith(path));
   const cacheableAsset = request.destination === 'document' || request.destination === 'script' || request.destination === 'style' || request.destination === 'font' || request.destination === 'image';
