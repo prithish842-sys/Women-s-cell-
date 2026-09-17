@@ -111,6 +111,12 @@ describe('security hardening contracts', () => {
     expect(authRoutes).not.toContain('Invalid credentials. Password incorrect.');
   });
 
+  it('never logs login identifiers, emails, or account state at debug level', () => {
+    const authRoutes = read('server/routes/auth.ts');
+    expect(authRoutes).not.toContain('LOGIN DEBUG');
+    expect(authRoutes).not.toContain('console.log');
+  });
+
   it('blocks destructive seed execution before delete operations', () => {
     const seed = read('server/seeds/seed.ts');
     const productionGuard = seed.indexOf("process.env.NODE_ENV === 'production'");

@@ -335,11 +335,6 @@ router.post('/login', async (req, res, next) => {
     // ----------------------------------------------------------
 
     if (!user) {
-      console.log(
-        '[LOGIN DEBUG] USER_NOT_FOUND:',
-        identifierTrimmed
-      );
-
       return res.status(401).json({
         success: false,
         message: INVALID_LOGIN_MESSAGE,
@@ -351,12 +346,6 @@ router.post('/login', async (req, res, next) => {
     // ----------------------------------------------------------
 
     if (!user.isActive) {
-      console.log('[LOGIN DEBUG] ACCOUNT_INACTIVE:', {
-        userId: user._id,
-        email: user.email,
-        identifier: user.identifier,
-      });
-
       return res.status(403).json({
         success: false,
         message:
@@ -374,12 +363,6 @@ router.post('/login', async (req, res, next) => {
     );
 
     if (!isMatch) {
-      console.log('[LOGIN DEBUG] PASSWORD_MISMATCH:', {
-        userId: user._id,
-        email: user.email,
-        identifier: user.identifier,
-      });
-
       return res.status(401).json({
         success: false,
         message: INVALID_LOGIN_MESSAGE,
@@ -389,13 +372,6 @@ router.post('/login', async (req, res, next) => {
     // ----------------------------------------------------------
     // Login successful
     // ----------------------------------------------------------
-
-    console.log('[LOGIN DEBUG] LOGIN_SUCCESS:', {
-      userId: user._id,
-      email: user.email,
-      identifier: user.identifier,
-      role: user.role,
-    });
 
     const safeUser = sanitizeUser(user);
 
