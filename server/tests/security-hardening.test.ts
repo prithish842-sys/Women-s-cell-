@@ -446,3 +446,108 @@ describe('gallery album coverImage write guard', () => {
     );
   });
 });
+
+describe('public statistics use bounded aggregate queries', () => {
+  it('returns aggregate counts without loading full collections', async () => {
+    const studentCount = vi.spyOn(prisma.studentProfile, 'count')
+      .mockResolvedValueOnce(120) // totalStudents
+      .mockResolvedValueOnce(40)  // alumniCount
+      .mockResolvedValueOnce(95); // singaPenMembers
+    vi.spyOn(prisma.governmentScheme, 'count').mockResolvedValue(6);
+    vi.spyOn(prisma.skill, 'count').mockResolvedValue(45);
+    vi.spyOn(prisma.studentProfile as any, 'groupBy').mockResolvedValue([{ department: 'CS' }, { department: 'MCA' }]);
+    const findSpy = vi.spyOn(StudentProfiles, 'find').mockResolvedValue([]);
+
+    const response = await request(app).get('/api/v1/public/statistics');
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toEqual({
+      totalStudents: 120,
+      activeStudents: 80,
+      alumniCount: 40,
+      singaPenMembers: 95,
+      activeSchemes: 6,
+      totalSkills: 45,
+      departmentCount: 2,
+    });
+
+    // Aggregated at the database layer with trashed records excluded
+    expect(studentCount).toHaveBeenCalledWith({ where: { deletedAt: null } });
+    expect(studentCount).toHaveBeenCalledWith(expect.objectContaining({
+      where: { deletedAt: null, expectedCompletionDate: { lt: expect.any(Date) } },
+    }));
+    expect(prisma.governmentScheme.count).toHaveBeenCalledWith({ where: { deletedAt: null, status: 'ACTIVE' } });
+    expect(findSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('public gallery listing is paginated and single-query', () => {
+  it('pages albums and avoids per-album image queries', async () => {
+    const now = new Date();
+    vi.spyOn(prisma.galleryAlbum, 'count').mockResolvedValue(25);
+    const findMany = vi.spyOn(prisma.galleryAlbum, 'findMany').mockResolvedValue([
+      {
+        id: 'album-1',
+        title: 'Annual Day',
+        slug: 'annual-day',
+        shortDescription: 'Gala',
+        fullDescription: 'Full description',
+        category: 'EVENT',
+        eventDate: now,
+        venue: null,
+        organizedBy: null,
+        coverImage: '',
+        isFeatured: false,
+        isPublished: true,
+        createdAt: now,
+        updatedAt: now,
+        images: [
+          { id: 'img-1', imageUrl: '/uploads/gallery/1.jpg', thumbnailUrl: null, caption: 'Opening', altText: 'Stage', displayOrder: 1 },
+        ],
+      },
+      {
+        id: 'album-2',
+        title: 'Workshop',
+        slug: 'workshop',
+        shortDescription: 'Learn',
+        fullDescription: 'Done',
+        category: 'WORKSHOP',
+        eventDate: null,
+        venue: null,
+        organizedBy: null,
+        coverImage: '/uploads/gallery/cover.jpg',
+        isFeatured: false,
+        isPublished: true,
+        createdAt: now,
+        updatedAt: now,
+        images: [],
+      },
+    ] as any);
+
+    const response = await request(app).get('/api/v1/public/gallery?page=2&limit=5');
+
+    expect(response.status).toBe(200);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { isPublished: true, deletedAt: null },
+      skip: 5,
+      take: 5,
+      include: { images: { orderBy: { displayOrder: 'asc' } } },
+    }));
+    expect(response.body.meta).toEqual({ page: 2, limit: 5, total: 25, totalPages: 5 });
+    expect(response.body.data[0]).toEqual(expect.objectContaining({ _id: 'album-1' }));
+    expect(response.body.data[0].coverImage).toBe('/uploads/gallery/1.jpg');
+    expect(response.body.data[0].photoCount).toBe(1);
+    expect(response.body.data[0].previewImages[0]).toEqual(expect.objectContaining({ _id: 'img-1' }));
+    expect(response.body.data[1].coverImage).toBe('/uploads/gallery/cover.jpg');
+  });
+
+  it('caps the page size at 100 albums', async () => {
+    vi.spyOn(prisma.galleryAlbum, 'count').mockResolvedValue(500);
+    const findMany = vi.spyOn(prisma.galleryAlbum, 'findMany').mockResolvedValue([]);
+
+    await request(app).get('/api/v1/public/gallery?limit=999');
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100, skip: 0 }));
+  });
+});

@@ -125,34 +125,38 @@ router.get('/site-content', async (req, res, next) => {
 // Get Public Homepage statistics
 router.get('/statistics', async (req, res, next) => {
   try {
-    const students = await StudentProfiles.find();
-    const schemes = await GovernmentSchemes.find();
-    
-    // Dynamic calculations
-    const enriched = students.map(enrichStudentAcademicDetails);
-    const activeStudents = enriched.filter(s => s && s.academicStatus !== 'PASSED_OUT').length;
-    const alumniCount = enriched.filter(s => s && s.academicStatus === 'PASSED_OUT').length;
-    
-    const singaPenMembers = students.filter(s => s.isSingaPenMember).length;
-    
-    // Active schemes (calculate status dynamically)
-    const schemeDetails = schemes.map(enrichSchemeDetails);
-    const activeSchemes = schemeDetails.filter(s => s && s.status === 'ACTIVE').length;
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-    // Categorized skills
-    const skillsList = await Skills.find();
-    const skillCount = skillsList.length;
+    const [
+      totalStudents,
+      alumniCount,
+      singaPenMembers,
+      activeSchemes,
+      skillCount,
+      departmentGroups,
+    ] = await Promise.all([
+      prisma.studentProfile.count({ where: { deletedAt: null } }),
+      prisma.studentProfile.count({
+        where: { deletedAt: null, expectedCompletionDate: { lt: todayStart } },
+      }),
+      prisma.studentProfile.count({ where: { deletedAt: null, isSingaPenMember: true } }),
+      prisma.governmentScheme.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+      prisma.skill.count(),
+      prisma.studentProfile.groupBy({ by: ['department'], where: { deletedAt: null } }),
+    ]);
 
     return res.json({
       success: true,
       data: {
-        totalStudents: students.length,
-        activeStudents,
+        totalStudents,
+        activeStudents: totalStudents - alumniCount,
         alumniCount,
         singaPenMembers,
         activeSchemes,
         totalSkills: skillCount,
-        departmentCount: Array.from(new Set(students.map(s => s.department))).length
+        departmentCount: departmentGroups.length
       }
     });
   } catch (error) {
@@ -730,60 +734,75 @@ router.get('/gallery', async (req, res, next) => {
     const category = req.query.category as string;
     const search = (req.query.search as string || '').toLowerCase();
     const isFeatured = req.query.isFeatured === 'true';
+    const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit), 10) || 100));
 
     // Only fetch published albums
-    let query: any = { isPublished: true };
+    const where: any = { isPublished: true, deletedAt: null };
     if (category && category !== 'ALL') {
-      query.category = category;
+      where.category = category;
     }
     if (isFeatured) {
-      query.isFeatured = true;
+      where.isFeatured = true;
     }
-
-    let albums = await GalleryAlbums.find(query);
-
-    // Apply search filter on title or description
     if (search) {
-      albums = albums.filter(a => 
-        a.title.toLowerCase().includes(search) || 
-        a.shortDescription.toLowerCase().includes(search) ||
-        a.fullDescription.toLowerCase().includes(search)
-      );
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { shortDescription: { contains: search, mode: 'insensitive' } },
+        { fullDescription: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    // Sort by eventDate or createdAt descending
-    albums.sort((a, b) => {
-      const dateA = a.eventDate ? new Date(a.eventDate).getTime() : new Date(a.createdAt || 0).getTime();
-      const dateB = b.eventDate ? new Date(b.eventDate).getTime() : new Date(b.createdAt || 0).getTime();
-      return dateB - dateA;
-    });
+    const [total, albums] = await Promise.all([
+      prisma.galleryAlbum.count({ where }),
+      prisma.galleryAlbum.findMany({
+        where,
+        orderBy: [{ eventDate: 'desc' }, { createdAt: 'desc' }],
+        include: { images: { orderBy: { displayOrder: 'asc' } } },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
-    // Populate photo counts and fallback cover image
-    const populated = await Promise.all(albums.map(async (album) => {
-      const images = await GalleryImages.find({ albumId: album._id });
-      images.sort((a, b) => a.displayOrder - b.displayOrder);
+    // Photo counts and fallback cover images, without per-album queries
+    const data = albums.map((album) => {
+      const images = album.images;
       const photoCount = images.length;
       let coverImage = album.coverImage;
       if (!coverImage && photoCount > 0) {
         coverImage = images[0].imageUrl;
       }
       return {
-        ...album,
-        photoCount,
+        _id: album.id,
+        id: album.id,
+        title: album.title,
+        slug: album.slug,
+        shortDescription: album.shortDescription,
+        fullDescription: album.fullDescription,
+        category: album.category,
+        eventDate: album.eventDate,
+        venue: album.venue,
+        organizedBy: album.organizedBy,
         coverImage: coverImage || '/uploads/placeholder_gallery.jpg',
-        previewImages: images.slice(0, 5).map(image => ({
-          _id: image._id,
+        isFeatured: album.isFeatured,
+        isPublished: album.isPublished,
+        createdAt: album.createdAt,
+        updatedAt: album.updatedAt,
+        photoCount,
+        previewImages: images.slice(0, 5).map((image) => ({
+          _id: image.id,
           imageUrl: image.imageUrl,
           thumbnailUrl: image.thumbnailUrl,
           caption: image.caption,
           altText: image.altText
         }))
       };
-    }));
+    });
 
     return res.json({
       success: true,
-      data: populated
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) }
     });
   } catch (error) {
     next(error);
