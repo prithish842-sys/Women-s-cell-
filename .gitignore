@@ -110,8 +110,8 @@ womens-cell-login-credentials.json
 .vercel
 .env*
 
-# Local-only squashed migration baseline (not part of the migration chain)
-/prisma/migrations/0_init/
+# Local backup of the broken migration history (collapsed into 0000_baseline)
+/prisma/migrations_backup_*/
 
 # Local tooling config
 .opencode/
