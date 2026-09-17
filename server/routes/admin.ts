@@ -20,6 +20,7 @@ import {
 } from '../schemas/validation.js';
 import {
   deleteStoredFile,
+  isManagedStoredImagePath,
   sendPrivateStoredFile,
   storedFileReference,
   uploadGallery,
@@ -1105,6 +1106,9 @@ router.put('/gallery/albums/:albumId', auth, authorize(['ADMIN']), uploadGallery
       .replace(/^-+|-+$/g, '') : album.slug;
 
     const coverFile = req.file as Express.Multer.File | undefined;
+    if (!coverFile && coverImage !== undefined && !isManagedStoredImagePath(coverImage)) {
+      return res.status(400).json({ success: false, message: 'coverImage must be an image path managed by the portal.' });
+    }
     if (coverFile && album.coverImage) {
       await deleteStoredFile(album.coverImage);
     }

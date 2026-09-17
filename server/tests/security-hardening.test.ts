@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { validateFileSignature } from '../middleware/upload.js';
+import { validateFileSignature, deleteStoredFile, isManagedStoredImagePath } from '../middleware/upload.js';
 import { app } from '../../server.js';
 import { errorMiddleware, getJwtSecret } from '../middleware/auth.js';
-import { Users, StudentProfiles } from '../models/index.js';
+import { Users, StudentProfiles, GalleryAlbums } from '../models/index.js';
 import { prisma } from '../config/prisma.js';
 import { GovernmentSchemeSchema, JobOpportunitySchema, SkillSchema, WorkshopSchema } from '../schemas/validation.js';
 
@@ -355,5 +355,71 @@ describe('production security guardrails', () => {
     expect(ai).toContain('generativelanguage.googleapis.com');
     expect(wellbeingRoutes).toContain("router.post('/me/chat', auth, authorize(['STUDENT'])");
     expect(publicRoutes).not.toContain('passwordHash');
+  });
+});
+
+describe('deleteStoredFile trafficking containment', () => {
+  it('rejects traversal and off-storage pathnames', () => {
+    expect(isManagedStoredImagePath('/uploads/gallery/covers/cover.jpg')).toBe(true);
+    expect(isManagedStoredImagePath('/private/icc/evidence.pdf')).toBe(true);
+    expect(isManagedStoredImagePath('https://store.vercel-blob.com/uploads/gallery/covers/cover.jpg')).toBe(true);
+    expect(isManagedStoredImagePath('/uploads/../../server/evil.png')).toBe(false);
+    expect(isManagedStoredImagePath('https://evil.example.com/notours.png')).toBe(false);
+    expect(isManagedStoredImagePath('/../server.ts')).toBe(false);
+    expect(isManagedStoredImagePath('')).toBe(false);
+  });
+
+  it('never deletes a file outside the uploads root through a traversal path', async () => {
+    const canary = writeFixture('canary.txt', Buffer.from('do-not-delete'));
+    const relativeUp = path.relative(process.cwd(), canary).split(/[\\/]/).map(() => '..').join('/');
+
+    await deleteStoredFile(`/uploads/${relativeUp}/.../${path.basename(canary)}`);
+
+    expect(fs.existsSync(canary)).toBe(true);
+  });
+
+  it('still deletes a real file inside the uploads root', async () => {
+    fs.mkdirSync(path.join(root, 'uploads', '.security-test'), { recursive: true });
+    const target = path.join(root, 'uploads', '.security-test', 'delete-me.png');
+    fs.writeFileSync(target, Buffer.from('junk'));
+    tempFiles.push(target);
+
+    await deleteStoredFile(`/uploads/.security-test/${path.basename(target)}`);
+
+    expect(fs.existsSync(target)).toBe(false);
+  });
+});
+
+describe('gallery album coverImage write guard', () => {
+  it('rejects a path-traversal coverImage on album update without touching storage', async () => {
+    const admin = mockAuthenticatedUser('ADMIN', 'admin-1');
+    vi.spyOn(GalleryAlbums, 'findById').mockResolvedValue({ _id: 'album-1', coverImage: '/uploads/gallery/covers/original.jpg' } as any);
+    const updateSpy = vi.spyOn(GalleryAlbums, 'findByIdAndUpdate').mockResolvedValue({} as any);
+
+    const response = await request(app)
+      .put('/api/v1/admin/gallery/albums/album-1')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ coverImage: '/uploads/../../server/evil.png' });
+
+    expect(response.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it('accepts a portal-managed coverImage path on album update', async () => {
+    const admin = mockAuthenticatedUser('ADMIN', 'admin-2');
+    const album = { _id: 'album-2', slug: 'album', title: 'Album', coverImage: '/uploads/gallery/covers/original.jpg' };
+    vi.spyOn(GalleryAlbums, 'findById').mockResolvedValue(album as any);
+    vi.spyOn(GalleryAlbums, 'findByIdAndUpdate').mockResolvedValue(album as any);
+
+    const response = await request(app)
+      .put('/api/v1/admin/gallery/albums/album-2')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ coverImage: '/uploads/gallery/covers/replacement.jpg' });
+
+    expect(response.status).toBe(200);
+    expect(GalleryAlbums.findByIdAndUpdate).toHaveBeenCalledWith(
+      'album-2',
+      expect.objectContaining({ coverImage: '/uploads/gallery/covers/replacement.jpg' }),
+    );
   });
 });

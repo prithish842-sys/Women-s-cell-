@@ -182,21 +182,33 @@ export function storedFileReference(file: Express.Multer.File, localPath: string
   return (file as any).storageUrl || localPath;
 }
 
+function normalizedStoredPath(raw?: string | null): string | null {
+  if (!raw) return null;
+  const pathname = raw.replace(/\\/g, '/').trim().replace(/^https?:\/\/[^/]+\//i, '').replace(/^\/+/, '');
+  if (pathname.split('/').includes('..')) return null;
+  if (pathname.startsWith('uploads/') || pathname.startsWith('private/')) return pathname;
+  return null;
+}
+
+export function isManagedStoredImagePath(value?: string | null): boolean {
+  return normalizedStoredPath(value) !== null;
+}
+
 export async function deleteStoredFile(storedPath?: string | null) {
   if (!storedPath) return;
+  const normalized = normalizedStoredPath(storedPath);
+  if (!normalized) return;
+
   if (isBlobStorage) {
-    const pathname = storedPath.replace(/^https?:\/\/[^/]+\//i, '').replace(/^\//, '');
-    await del(pathname);
+    await del(normalized);
     return;
   }
-  const localRelativePath = storedPath.startsWith('/private/')
-    ? path.join('uploads', storedPath.replace(/^\//, ''))
-    : storedPath.startsWith('/uploads/')
-      ? storedPath.replace(/^\//, '')
-      : '';
-  if (!localRelativePath) return;
-  const filePath = path.join(process.cwd(), localRelativePath);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  const relative = normalized.startsWith('private/') ? `uploads/${normalized}` : normalized;
+  const filePath = path.resolve(process.cwd(), relative);
+  const relativeToRoot = path.relative(path.resolve(UPLOAD_ROOT), filePath);
+  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) return;
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) fs.unlinkSync(filePath);
 }
 
 function contentTypeForPath(filePath: string) {
