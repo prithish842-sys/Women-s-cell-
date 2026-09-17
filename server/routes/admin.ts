@@ -764,12 +764,16 @@ router.put('/faculty/:facultyId', auth, authorize(['ADMIN']), async (req: Authen
 
     const { name, email, department, designation, phone, isActive } = req.body;
 
-    // Update User
-    await Users.findByIdAndUpdate(profile.userId, { 
+    // Update User (only touch account status when explicitly provided, so
+    // editing profile details does not silently reactivate a suspended account)
+    const userUpdates: Record<string, any> = {
       name,
-      email: email.toLowerCase(),
-      isActive: isActive !== undefined ? !!isActive : true
-    });
+      email: email.toLowerCase()
+    };
+    if (isActive !== undefined) {
+      userUpdates.isActive = !!isActive;
+    }
+    await Users.findByIdAndUpdate(profile.userId, userUpdates);
 
     // Update Profile
     const updated = await FacultyProfiles.findByIdAndUpdate(req.params.facultyId, {

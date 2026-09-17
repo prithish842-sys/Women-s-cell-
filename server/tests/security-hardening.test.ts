@@ -7,7 +7,7 @@ import path from 'path';
 import { validateFileSignature, deleteStoredFile, isManagedStoredImagePath } from '../middleware/upload.js';
 import { app } from '../../server.js';
 import { errorMiddleware, getJwtSecret } from '../middleware/auth.js';
-import { Users, StudentProfiles, GalleryAlbums } from '../models/index.js';
+import { Users, StudentProfiles, GalleryAlbums, FacultyProfiles } from '../models/index.js';
 import { prisma } from '../config/prisma.js';
 import { GovernmentSchemeSchema, JobOpportunitySchema, SkillSchema, WorkshopSchema } from '../schemas/validation.js';
 
@@ -585,5 +585,39 @@ describe('emergency contact isVerified cannot be client-asserted', () => {
     const source = read('server/routes/emergency.ts');
     const schemaBlock = source.split('const ContactSchema =')[1].split(/^const |^router /m)[0];
     expect(schemaBlock).not.toContain('isVerified');
+  });
+});
+
+describe('faculty updates keep a suspended account suspended', () => {
+  it('does not revive isActive when it is absent from the edit payload', async () => {
+    const admin = mockAuthenticatedUser('ADMIN', 'admin-3');
+    const profile = { _id: 'faculty-1', userId: 'user-1', name: 'Dr A', department: 'CS', designation: 'Professor', phone: '' };
+    vi.spyOn(FacultyProfiles, 'findById').mockResolvedValue(profile as any);
+    const userUpdateSpy = vi.spyOn(Users, 'findByIdAndUpdate').mockResolvedValue({ _id: 'user-1', isActive: false } as any);
+    vi.spyOn(FacultyProfiles, 'findByIdAndUpdate').mockResolvedValue(profile as any);
+
+    const response = await request(app)
+      .put('/api/v1/admin/faculty/faculty-1')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ name: 'Dr A Updated', email: 'dr.a@example.com', department: 'CS', designation: 'Professor', phone: '123456' });
+
+    expect(response.status).toBe(200);
+    const updateArg = userUpdateSpy.mock.calls[0][1] as any;
+    expect(updateArg.isActive).toBeUndefined();
+  });
+
+  it('still applies an explicit isActive change', async () => {
+    const admin = mockAuthenticatedUser('ADMIN', 'admin-4');
+    vi.spyOn(FacultyProfiles, 'findById').mockResolvedValue({ _id: 'faculty-2', userId: 'user-2' } as any);
+    const userUpdateSpy = vi.spyOn(Users, 'findByIdAndUpdate').mockResolvedValue({} as any);
+    vi.spyOn(FacultyProfiles, 'findByIdAndUpdate').mockResolvedValue({} as any);
+
+    await request(app)
+      .put('/api/v1/admin/faculty/faculty-2')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ name: 'Dr B', email: 'dr.b@example.com', isActive: false });
+
+    const updateArg = userUpdateSpy.mock.calls[0][1] as any;
+    expect(updateArg.isActive).toBe(false);
   });
 });
