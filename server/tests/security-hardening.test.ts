@@ -551,3 +551,39 @@ describe('public gallery listing is paginated and single-query', () => {
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100, skip: 0 }));
   });
 });
+
+describe('emergency contact isVerified cannot be client-asserted', () => {
+  it('drops a client-supplied isVerified when saving a contact', async () => {
+    const student = mockAuthenticatedUser('STUDENT', 'student-a');
+    vi.spyOn(prisma.emergencyContact, 'count').mockResolvedValue(0);
+    const createSpy = vi.spyOn(prisma.emergencyContact, 'create').mockResolvedValue({
+      id: 'contact-1',
+      ownerUserId: 'student-a',
+      ownerRole: 'STUDENT',
+      name: 'Mom',
+      phone: '+919000000000',
+      relationship: 'Mother',
+      contactType: 'FAMILY',
+      isStaffContact: false,
+      isVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    const response = await request(app)
+      .post('/api/v1/emergency/me/contacts')
+      .set('Authorization', `Bearer ${student.token}`)
+      .send({ name: 'Mom', phone: '+919000000000', relationship: 'Mother', contactType: 'FAMILY', isVerified: true });
+
+    expect(response.status).toBe(201);
+    const createCall = createSpy.mock.calls[0][0] as any;
+    expect(createCall.data.isVerified).toBeUndefined();
+    expect(response.body.data.isVerified).toBe(false);
+  });
+
+  it('keeps isVerified out of the Contact validation schema', () => {
+    const source = read('server/routes/emergency.ts');
+    const schemaBlock = source.split('const ContactSchema =')[1].split(/^const |^router /m)[0];
+    expect(schemaBlock).not.toContain('isVerified');
+  });
+});

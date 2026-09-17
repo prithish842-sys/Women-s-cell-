@@ -18,7 +18,6 @@ const ContactSchema = z.object({
   relationship: z.string().trim().min(2).max(80),
   contactType: z.enum(CONTACT_TYPE_VALUES).default('OTHER'),
   isStaffContact: z.coerce.boolean().default(false),
-  isVerified: z.coerce.boolean().default(false),
 });
 
 const TriggerSchema = z.object({
@@ -91,7 +90,6 @@ router.post('/me/contacts', auth, async (req: AuthenticatedRequest, res: Respons
         relationship: parsed.data.relationship,
         contactType: parsed.data.contactType,
         isStaffContact: parsed.data.isStaffContact,
-        isVerified: parsed.data.isVerified,
       },
     });
     return res.status(201).json({ success: true, message: 'Emergency contact saved.', data: serializeContact(contact) });
@@ -118,7 +116,6 @@ router.put('/me/contacts/:contactId', auth, async (req: AuthenticatedRequest, re
         relationship: parsed.data.relationship,
         contactType: parsed.data.contactType,
         isStaffContact: parsed.data.isStaffContact,
-        isVerified: parsed.data.isVerified,
       },
     });
     return res.json({ success: true, message: 'Emergency contact updated.', data: serializeContact(contact) });
