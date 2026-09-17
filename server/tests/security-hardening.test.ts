@@ -236,6 +236,23 @@ describe('production security guardrails', () => {
     expect(facultyResponse.status).toBe(403);
   });
 
+  it('keeps the emergency event queue (with per-contact PII) away from FACULTY tokens', async () => {
+    const faculty = mockAuthenticatedUser('FACULTY', 'faculty-1');
+    const denied = await request(app)
+      .get('/api/v1/emergency/admin/events')
+      .set('Authorization', `Bearer ${faculty.token}`);
+    expect(denied.status).toBe(403);
+
+    vi.restoreAllMocks();
+
+    const admin = mockAuthenticatedUser('ADMIN', 'admin-1');
+    vi.spyOn(prisma.emergencyEvent, 'findMany').mockResolvedValue([]);
+    const allowed = await request(app)
+      .get('/api/v1/emergency/admin/events')
+      .set('Authorization', `Bearer ${admin.token}`);
+    expect(allowed.status).toBe(200);
+  });
+
   it('conceals another student wellbeing check-in ID as not found', async () => {
     const student = mockAuthenticatedUser('STUDENT', 'student-a');
     vi.spyOn(prisma.studentProfile, 'findUnique').mockResolvedValue({ id: 'profile-a', userId: 'student-a' } as any);
